@@ -2,6 +2,41 @@
 
 Claude Code skills for managing SambaNova models and running coding sub-agents.
 
+## Installation
+
+### Step 1: Add the marketplace
+
+In Claude Code, run:
+
+```
+/plugin marketplace add git@github.sambanovasystems.com:nathanz/samba-claude.git
+```
+
+Or manually add it to your `.claude/settings.json`:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "samba-claude": {
+      "source": {
+        "source": "git",
+        "url": "git@github.sambanovasystems.com:nathanz/samba-claude.git"
+      }
+    }
+  }
+}
+```
+
+### Step 2: Install the plugin
+
+```
+/plugin install samba-claude
+```
+
+### Step 3: Initialize
+
+Run `/setup` to create the virtual environment before using any other skill.
+
 These skills are invoked as slash commands (e.g. `/setup`, `/code`) within Claude Code.
 Each skill lives in its own directory containing a `SKILL.md` descriptor and a `scripts/`
 folder with the underlying shell and Python implementations.
