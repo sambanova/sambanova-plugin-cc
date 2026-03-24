@@ -1,0 +1,13 @@
+{
+    "name": "Nathan Z's Plugins",
+    "owner": {
+        "name": "Nathan Zhang"
+    },
+    "plugins": [
+        {
+            "name": "samba-claude",
+            "source": "./plugins/samba-claude",
+            "description": "Adds a variety of skills for delegating tasks to the sambanova cloud."
+        }
+    ]
+}
