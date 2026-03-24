@@ -1,26 +1,16 @@
 ---
 name: model-info
-description: Show 
-argument-hint: [model-id]
-allowed-tools: [Bash]
+description: Show all models available on the SambaNova platform with their context length and max completion tokens. Use when the user asks "what models are available", "show platform models", or needs to look up model parameters before adding one to the database.
+allowed-tools: Bash(bash *)
 agent: general-purpose
 ---
 
 # Model Info
 
-Display information about the models available.
-
-## Arguments
-
-The user invoked this with: $ARGUMENTS
+Display information about all models available on the SambaNova platform. This shows the full catalog of models that *can* be used, not just those stored in the local parameters database (use `/list-models` for that).
 
 ## Instructions
 
-When this skill is invoked, run `bash ./scripts/model_info.sh` relative to this skill's directory.
+When this skill is invoked, run `bash ${CLAUDE_SKILL_DIR}/scripts/model_info.sh`.
 
-## Example Output
-Model(context_length=131072, id='DeepSeek-V3.1-Terminus', max_completion_tokens=7168)
-Model(context_length=8192, id='DeepSeek-V3.2', max_completion_tokens=7168)
-Model(context_length=163840, id='MiniMax-M2.5', max_completion_tokens=16384)
-Model(context_length=65536, id='Qwen3-235B', max_completion_tokens=4096)
-Model(context_length=131072, id='gpt-oss-120b', max_completion_tokens=131072)
+Display the output to the user.
