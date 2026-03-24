@@ -2,7 +2,7 @@
 name: model-info
 description: Show 
 argument-hint: [model-id]
-allowed-tools: [Bash(bash ./scripts/model_info.sh)]
+allowed-tools: [Bash]
 agent: general-purpose
 ---
 

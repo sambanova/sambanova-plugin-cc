@@ -3,12 +3,13 @@ import pathlib
 import sys
 
 from agent_shims.cn import runner as cn
+from agent_shims.opencode import runner as opencode
 from agent_shims.model_parameters import get_model
 
 
 def main():
     parser = argparse.ArgumentParser(description="Run a coding tool as a sub-agent.")
-    parser.add_argument("tool", choices=["continue"], help="Coding tool to use")
+    parser.add_argument("tool", choices=["continue", "opencode"], help="Coding tool to use")
     parser.add_argument("model", help="Model name (must exist in the parameters database)")
     parser.add_argument("prompt", help="Prompt to send to the tool")
     parser.add_argument("cwd", help="Working directory for the tool")
@@ -22,11 +23,14 @@ def main():
 
     if args.tool == "continue":
         result = cn.run(model, args.prompt, args.cwd)
-        if result.stdout:
-            print(result.stdout, end="")
-        if result.returncode != 0:
-            print(result.stderr, end="", file=sys.stderr)
-            sys.exit(result.returncode)
+    elif args.tool == "opencode":
+        result = opencode.run(model, args.prompt, args.cwd, args.files or None)
+
+    if result.stdout:
+        print(result.stdout, end="")
+    if result.returncode != 0:
+        print(result.stderr, end="", file=sys.stderr)
+        sys.exit(result.returncode)
 
 
 if __name__ == "__main__":

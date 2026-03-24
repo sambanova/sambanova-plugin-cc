@@ -2,7 +2,7 @@
 name: update-model
 description: Insert or update a model in the parameters database. Use when the user asks to "update model", "add model", or "insert model" with model details.
 argument-hint: <name> <context_length> <max_completion_tokens> [sampling_parameters_json]
-allowed-tools: [Bash(bash *)]
+allowed-tools: "Bash WebFetch WebSearch"
 ---
 
 # Update Model

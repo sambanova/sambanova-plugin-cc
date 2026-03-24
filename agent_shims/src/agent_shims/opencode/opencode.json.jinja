@@ -1,0 +1,35 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "model": "sambanova/{{ model.id }}",
+    "provider": {
+        "sambanova": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "SambaNova",
+            "options": {
+                "baseURL": "https://api.sambanova.ai/v1",
+                "apiKey": "{env:SAMBANOVA_API_KEY}"
+            },
+            "models": {
+                "{{ model.id }}": {
+                    "name": "{{ model.id }}",
+                    "temperature": true,
+                    "limit": {
+                        "context": {{ model.context_length }},
+                        "output": {{ model.max_completion_tokens }}
+                    }
+                }
+            }
+        }
+    },
+    "agent": {
+        {% for agent in ["plan", "explore", "build", "general"] %}
+        "{{ agent }}": {
+            {% for key, value in sampling_parameters.items() %}
+            "{{ key }}": {{ value }}{% if not loop.last %},{% endif %}
+
+            {% endfor %}
+        }{% if not loop.last %},{% endif %}
+
+        {% endfor %}
+    }
+}
