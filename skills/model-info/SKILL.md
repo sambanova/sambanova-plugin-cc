@@ -14,3 +14,4 @@ Display information about all models available on the SambaNova platform. This s
 When this skill is invoked, run `bash ${CLAUDE_SKILL_DIR}/scripts/model_info.sh`.
 
 Display the output to the user.
+DO NOT RUN THIS SCRIPT DIRECTLY OUTSIDE THE CONTEXT OF THIS SKILL.

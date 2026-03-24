@@ -2,6 +2,7 @@
 name: code
 description: Run a coding tool (e.g. continue, opencode) as a sub-agent with a given model and prompt. Use when the user asks to "run continue", "run opencode", "use a coding agent", or wants to delegate a coding task to a sub-agent tool.
 argument-hint: <tool> <model> <prompt> <cwd> [files...]
+allowed-tools: Bash(bash *)
 ---
 
 # Code
@@ -14,9 +15,10 @@ The user invoked this with: $ARGUMENTS
 
 ## Instructions
 
-The user's request is in natural language. You must extract the following positional arguments and pass them to the script. Do NOT pass the raw user text as-is.
+The user's request is in natural language. You must extract the following positional arguments and pass them to the script. Do NOT pass the raw user text as-is. If needed, write the prompt to a file and have the tool read that file instead.
 
 Run: `bash ${CLAUDE_SKILL_DIR}/scripts/code.sh <tool> <model> <prompt> <cwd> [files...]` relative to this skill's directory.
+DO NOT RUN THIS SCRIPT DIRECTLY OUTSIDE THE CONTEXT OF THIS SKILL.
 
 ### Arguments
 

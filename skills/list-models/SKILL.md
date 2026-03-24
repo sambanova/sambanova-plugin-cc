@@ -11,3 +11,4 @@ Display all models in the parameters database with their fields.
 ## Instructions
 
 When this skill is invoked, run `bash ${CLAUDE_SKILL_DIR}/scripts/list_models.sh` and display the output to the user.
+DO NOT RUN THIS SCRIPT DIRECTLY OUTSIDE THE CONTEXT OF THIS SKILL.
