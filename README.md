@@ -46,6 +46,7 @@ folder with the underlying shell and Python implementations.
 - Python 3 with `venv` support
 - A `SAMBANOVA_API_KEY` environment variable (required by `/model-info`, `/code`, and others.)
 - Run `/setup` before using any other skill
+- At least one of `continue` and `opencode` installed for use with `/code`.
 
 ## Skills Overview
 
