@@ -1,0 +1,15 @@
+name: Continue
+version: 0.0.1
+schema: v1
+
+models:
+  - name: {{ model.name }}
+    provider: sambanova
+    model: {{ model.name }}
+    apiKey: {% raw %}${{ secrets.SAMBANOVA_API_KEY }}{% endraw %}
+    defaultCompletionOptions:
+{% for key, value in sampling_parameters.items() %}
+      {{ key }}: {{ value }}
+{% endfor %}
+      maxTokens: {{ model.maxTokens }}
+      contextLength: {{ model.contextLength }}
