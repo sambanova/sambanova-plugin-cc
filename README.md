@@ -78,18 +78,31 @@ Runs a coding tool (`continue` or `opencode`) as a sub-agent with a specified mo
 and prompt. Useful for delegating tasks like code review, implementation, or ideation.
 
 ```
-/code <tool> <model> <prompt> <cwd> [files...]
+/code <tool> <model> <cwd> <prompt> [--max-tokens <n>] [--tool-arg <arg>...]
 ```
 
 **Arguments:**
 
 | Argument | Required | Description |
 |---|---|---|
-| `tool` | Yes | `continue` (default) or `opencode` (better for iterative code+test loops) |
+| `tool` | Yes | `continue` or `opencode` (see tool selection guide below) |
 | `model` | Yes | Bare model ID from the database (e.g. `MiniMax-M2.5`, not `sambanova/MiniMax-M2.5`) |
-| `prompt` | Yes | The prompt to send, quoted as a single shell argument |
 | `cwd` | Yes | Working directory for the tool (defaults to project root if unspecified) |
-| `files` | No | Files to grant access to (used by `opencode`; ignored by `continue`) |
+| `prompt` | Yes | The prompt to send, quoted as a single shell argument |
+| `--max-tokens` | No | Override the model's `max_completion_tokens` for this run |
+| `--tool-arg` | No | Extra args passed to the underlying tool (repeatable, use `=` syntax for flags: `--tool-arg="--file"`) |
+
+**Tool selection guide:**
+
+| Scenario | Tool |
+|---|---|
+| MiniMax-M2.5 (any task) | `continue` — opencode has ~80% think-only failure rate |
+| Large code generation (1,000+ lines) | `continue` — iterates across turns, tested up to 3,700 lines |
+| Code review of large files (1,500+ lines) | `continue` — reads in chunks; opencode truncates at ~1,500 lines |
+| Qwen3-235B + C++ | `continue` (cleaner) or `opencode` |
+| Side-effect-free output needed | `opencode` — doesn't modify filesystem |
+
+See `skills/code/prompting/` for detailed model and tool guides.
 
 **Common model aliases:**
 
