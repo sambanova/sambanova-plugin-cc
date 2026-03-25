@@ -29,8 +29,33 @@ DO NOT RUN THIS SCRIPT DIRECTLY OUTSIDE THE CONTEXT OF THIS SKILL.
 | `model` | yes | Model name as stored in the parameters database (use `/list-models` to check). **Important:** Use the bare model ID (e.g. `MiniMax-M2.5`), not a provider-prefixed name (e.g. ~~`sambanova/MiniMax-M2.5`~~). The provider is configured automatically. |
 | `cwd` | yes | Working directory for the tool. Default to the project root if not specified. |
 | `prompt` | yes | The prompt to send to the tool. Quote it as a single shell argument. |
-| `--tool-arg` | no | Extra arguments passed through verbatim to the underlying tool. Repeatable. For example, to pass files to `opencode`: `--tool-arg --file --tool-arg /path/to/file`. |
+| `--tool-arg` | no | Extra arguments passed through verbatim to the underlying tool. Repeatable — each `--tool-arg` takes exactly one value. See the **Passing `--tool-arg`** section below for syntax details. |
 | `--max-tokens` | no | Override the model's `max_completion_tokens` for this run. The database value is only a default; the actual limit is the model's context length. Use this to request more output tokens when needed. |
+
+### Passing `--tool-arg`
+
+`--tool-arg` uses argparse `action="append"`, so each occurrence takes **exactly one value**. To pass a flag and its value to the underlying tool, use two separate `--tool-arg` entries.
+
+**Caveat:** Values that start with `-` (i.e. flags) are ambiguous to argparse. Use the `=` syntax (`--tool-arg="--flag"`) to avoid parsing errors.
+
+```bash
+# Attach a file to opencode (note: = syntax for the -f flag)
+code.sh opencode MiniMax-M2.5 /project "prompt" \
+  --tool-arg="-f" --tool-arg="/path/to/file.py"
+
+# Multiple files
+code.sh opencode MiniMax-M2.5 /project "prompt" \
+  --tool-arg="-f" --tool-arg="src/main.py" \
+  --tool-arg="-f" --tool-arg="src/utils.py"
+
+# Override max tokens to 64k
+code.sh opencode MiniMax-M2.5 /project "prompt" --max-tokens 65536
+
+# Combine both
+code.sh opencode MiniMax-M2.5 /project "prompt" \
+  --max-tokens 16000 \
+  --tool-arg="--thinking"
+```
 
 ### Common model aliases
 

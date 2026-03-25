@@ -1,4 +1,6 @@
 import importlib.resources
+import os
+import pathlib
 import subprocess
 import tempfile
 
@@ -14,16 +16,18 @@ def get_config_template() -> str:
 
 def run(model: Model, prompt: str, cwd: str, extra_args: list[str] | None = None) -> subprocess.CompletedProcess:
     config = render_config(model, model.sampling_parameters or None)
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as f:
-        f.write(config)
-        f.flush()
-        config_path = f.name
-        cmd = ["cn", "--config", config_path, "-p", prompt, "--silent", "--auto"] + (extra_args or [])
+    with tempfile.TemporaryDirectory(prefix="cn-home-") as tmp_home:
+        pathlib.Path(tmp_home, ".continue").mkdir()
+        config_path = pathlib.Path(tmp_home, "config.yaml")
+        config_path.write_text(config)
+        cmd = ["cn", "--config", str(config_path), "-p", prompt, "--silent", "--auto"] + (extra_args or [])
+        env = {**os.environ, "HOME": tmp_home}
         return subprocess.run(
             cmd,
             cwd=cwd,
             capture_output=True,
             text=True,
+            env=env,
         )
 
 

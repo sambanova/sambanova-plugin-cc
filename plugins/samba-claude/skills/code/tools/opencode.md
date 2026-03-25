@@ -12,25 +12,31 @@ code.sh opencode <model> <cwd> <prompt>
 
 ## Passing Extra Flags
 
-Use `--tool-arg` to forward additional flags. Each flag and its value must be a separate `--tool-arg`.
+Use `--tool-arg` to forward additional flags. Each `--tool-arg` takes **exactly one value**, so flags and their values must be separate entries.
+
+**Important:** Values starting with `-` (i.e. flags like `--file`, `--format`) must use the `=` syntax to avoid argparse ambiguity: `--tool-arg="--file"` not `--tool-arg --file`.
 
 ```bash
 # Attach files for context
 code.sh opencode MiniMax-M2.5 /path/to/project "review this code" \
-  --tool-arg --file --tool-arg src/main.py \
-  --tool-arg --file --tool-arg src/utils.py
+  --tool-arg="-f" --tool-arg="src/main.py" \
+  --tool-arg="-f" --tool-arg="src/utils.py"
 
 # JSON event stream output
 code.sh opencode MiniMax-M2.5 /path/to/project "analyze this" \
-  --tool-arg --format --tool-arg json
+  --tool-arg="--format" --tool-arg="json"
 
 # Continue a previous session
 code.sh opencode MiniMax-M2.5 /path/to/project "follow up question" \
-  --tool-arg --continue
+  --tool-arg="--continue"
 
 # Show thinking blocks
 code.sh opencode MiniMax-M2.5 /path/to/project "explain this" \
-  --tool-arg --thinking
+  --tool-arg="--thinking"
+
+# Override max output tokens
+code.sh opencode MiniMax-M2.5 /path/to/project "write a large file" \
+  --max-tokens 65536
 ```
 
 ## Useful `--tool-arg` Options

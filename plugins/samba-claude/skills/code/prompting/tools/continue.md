@@ -1,52 +1,37 @@
 # continue
 
-Single-pass coding sub-agent. Faster than opencode but does not iterate by default.
+Agentic coding sub-agent with tool use. Runs in `--auto` mode with access to file read/write and terminal tools. Can iterate across multiple turns, making it the **preferred tool for MiniMax-M2.5**.
 
 ## When to Use
-- Quick generation where one-shot accuracy is sufficient
+- **Default choice for MiniMax-M2.5** — opencode has ~80% think-only failure rate with this model
+- Complex, large-scale code generation (tested up to 3,700 lines / 132KB in one session)
+- Reviewing large files — can read in chunks across multiple tool calls (no ~1,500 line limit like opencode)
+- Tasks that benefit from write-test-fix loops (continue drives these itself — tested: wrote code, ran 67 tests, fixed bugs across multiple turns autonomously)
 - Qwen3-235B + C++ (produces significantly cleaner output than opencode)
-- Simpler tasks that don't need write-test-fix loops
-- When you need faster turnaround
 
 ## When to Use opencode Instead
-- Complex tasks that need iterative refinement
-- Tasks where reading existing code context matters
-- When you need `--tool-arg --file` to target specific files
+- When you want deterministic, side-effect-free output (continue uses tools that modify the filesystem)
+- Qwen3-235B tasks where you need `--tool-arg --file` to inject file context directly
 
 ## Prompt Structure
 
-Same fundamentals as opencode, but even more important to be precise since there's no iteration:
-
-1. **Be specific in one shot** — the model won't get a second pass to fix bugs
-2. **Explicit file paths required** — "Write to /full/path/to/file"
-3. **Keep prompts concise** — shorter is better since continue doesn't iterate
-4. **Request a test/demo in main()** to verify correctness
-
-## Multi-Iteration: Driving the Loop Yourself
-
-`continue` does not iterate on its own, even if asked to "compile and fix". To get iterative refinement, **you must drive the loop externally**:
-
-1. Call `continue` to generate the initial code
-2. Compile/run the output yourself
-3. Call `continue` again with the error output and a targeted diagnosis
-
-This is highly effective when you can pinpoint the bug category in your follow-up prompt:
-
-- **Stress test bugs**: "Each consumer loops to 80000 but there are 8 consumers sharing 80000 items — use a shared atomic counter instead"
-- **Runtime panics**: "Intn panics when n<=0 — guard the steal target count"
-- **Compile errors**: Paste the exact error and ask for a fix
-
-The key is **diagnosing the root cause yourself** and giving a targeted hint, not just pasting the error and hoping. Generic "fix this error" prompts tend to introduce new bugs.
+1. **Lead with the action** — "Read /path/to/file and write a code review" or "Implement X and write it to /path/to/file"
+2. **List requirements as numbered items**
+3. **Explicit file paths** — continue can create files via tool use, but specifying paths keeps output predictable
+4. **Request tests** — continue can write tests, run them, and fix failures in a loop
+5. **Keep prompts to 200-500 words** — the model iterates, so you don't need to front-load everything
 
 ## Model Pairing
 
-| Model | continue | opencode |
-|-------|----------|----------|
-| MiniMax-M2.5 | Reliable for all languages | Reliable for all languages |
-| Qwen3-235B | C++ only (cleaner than opencode) | C++ only (may duplicate output) |
+| Model | Recommendation |
+|-------|---------------|
+| **MiniMax-M2.5** | **Strongly preferred.** Reliable across all languages. Handles large tasks (3,700+ lines). opencode has ~80% failure rate. |
+| **Qwen3-235B** | C++ only (cleaner than opencode). Does not reliably write Python/Go files with either tool. |
 
-Key difference: **Qwen C++ is better with `continue`** — the opencode duplication bug doesn't appear.
+## Session Isolation
+Each `cn` invocation runs with an isolated `HOME` directory to prevent session history leakage. Without this, `cn` injects a `conversationSummary` from the most recent prior session for the same workspace, causing the model to respond based on stale context. The config is passed via `--config`, so no files from the real `~/.continue` are needed.
 
 ## Post-Generation
 - Always check file sizes — especially with Qwen, verify the write actually happened
 - For Qwen + Python/Go: don't bother retrying, switch to MiniMax-M2.5
+- `continue` in `--auto` mode may find and operate on pre-existing files on disk — clean up stale artifacts from `/tmp` or the working directory before running if you need fresh output

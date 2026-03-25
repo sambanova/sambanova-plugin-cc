@@ -12,20 +12,26 @@ code.sh continue <model> <cwd> <prompt>
 
 ## Passing Extra Flags
 
-Use `--tool-arg` to forward additional flags. Each flag and its value must be a separate `--tool-arg`:
+Use `--tool-arg` to forward additional flags. Each `--tool-arg` takes **exactly one value**, so flags and their values must be separate entries.
+
+**Important:** Values starting with `-` (i.e. flags like `--readonly`, `--rule`) must use the `=` syntax to avoid argparse ambiguity: `--tool-arg="--readonly"` not `--tool-arg --readonly`.
 
 ```bash
 # Read-only mode (no write/shell tools)
 code.sh continue MiniMax-M2.5 /path/to/project "review this code" \
-  --tool-arg --readonly
+  --tool-arg="--readonly"
 
 # Add a rule
 code.sh continue MiniMax-M2.5 /path/to/project "summarize changes" \
-  --tool-arg --rule --tool-arg "Be concise"
+  --tool-arg="--rule" --tool-arg="Be concise"
 
 # Restrict tools
 code.sh continue MiniMax-M2.5 /path/to/project "analyze the code" \
-  --tool-arg --exclude --tool-arg builtin_run_terminal_command
+  --tool-arg="--exclude" --tool-arg="builtin_run_terminal_command"
+
+# Override max output tokens
+code.sh continue MiniMax-M2.5 /path/to/project "write a large file" \
+  --max-tokens 65536
 ```
 
 ## Useful `--tool-arg` Options
