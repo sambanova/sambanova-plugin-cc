@@ -12,14 +12,15 @@ def get_config_template() -> str:
     return ref.read_text(encoding="utf-8")
 
 
-def run(model: Model, prompt: str, cwd: str) -> subprocess.CompletedProcess:
+def run(model: Model, prompt: str, cwd: str, extra_args: list[str] | None = None) -> subprocess.CompletedProcess:
     config = render_config(model, model.sampling_parameters or None)
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as f:
         f.write(config)
         f.flush()
         config_path = f.name
+        cmd = ["cn", "--config", config_path, "-p", prompt, "--silent", "--auto"] + (extra_args or [])
         return subprocess.run(
-            ["cn", "--config", config_path, "-p", prompt, "--silent", "--auto"],
+            cmd,
             cwd=cwd,
             capture_output=True,
             text=True,

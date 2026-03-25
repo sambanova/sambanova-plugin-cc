@@ -21,14 +21,12 @@ def render_config(model: Model, sampling_parameters: dict | None = None) -> str:
     )
 
 
-def run(model: Model, prompt: str, cwd: str, files: list[str] | None = None) -> subprocess.CompletedProcess:
+def run(model: Model, prompt: str, cwd: str, extra_args: list[str] | None = None) -> subprocess.CompletedProcess:
     config = render_config(model)
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json") as f:
         f.write(config)
         f.flush()
-        cmd = ["opencode", "run", prompt]
-        for path in (files or []):
-            cmd += ["--file", path]
+        cmd = ["opencode", "run", prompt] + (extra_args or [])
         return subprocess.run(
             cmd,
             cwd=cwd,

@@ -1,7 +1,7 @@
 ---
 name: code
 description: Run a coding tool (e.g. continue, opencode) as a sub-agent with a given model and prompt. Use when the user asks to "run continue", "run opencode", "use a coding agent", or wants to delegate a coding task to a sub-agent tool.
-argument-hint: <tool> <model> <prompt> <cwd> [files...]
+argument-hint: <tool> <model> <cwd> <prompt> [--max-tokens <n>] [--tool-arg <arg>...]
 allowed-tools: Bash(bash *)
 ---
 
@@ -16,19 +16,21 @@ The user invoked this with: $ARGUMENTS
 ## Instructions
 
 The user's request is in natural language. You must extract the following positional arguments and pass them to the script. Do NOT pass the raw user text as-is. If needed, write the prompt to a file and have the tool read that file instead.
+Prefer passing the file in as an input with instructions to read said file over using another tool such as `cat` to inject it into the command line.
 
-Run: `bash ${CLAUDE_SKILL_DIR}/scripts/code.sh <tool> <model> <prompt> <cwd> [files...]` relative to this skill's directory.
+Run: `bash ${CLAUDE_SKILL_DIR}/scripts/code.sh <tool> <model> <cwd> <prompt> [--tool-arg <arg>...]` relative to this skill's directory.
 DO NOT RUN THIS SCRIPT DIRECTLY OUTSIDE THE CONTEXT OF THIS SKILL.
 
 ### Arguments
 
 | Arg | Required | Description |
 |---|---|---|
-| `tool` | yes | Coding tool to use: `continue` or `opencode`. Prefer `continue` by default; use `opencode` for complex tasks that benefit from iterative code+test loops. |
+| `tool` | yes | Coding tool to use. See the section below under "Available Tools and Documentation" for more information. |
 | `model` | yes | Model name as stored in the parameters database (use `/list-models` to check). **Important:** Use the bare model ID (e.g. `MiniMax-M2.5`), not a provider-prefixed name (e.g. ~~`sambanova/MiniMax-M2.5`~~). The provider is configured automatically. |
-| `prompt` | yes | The prompt to send to the tool. Quote it as a single shell argument. |
 | `cwd` | yes | Working directory for the tool. Default to the project root if not specified. |
-| `files` | no | Optional list of files to grant access to. Used by `opencode` via `--file`; ignored by `continue`. |
+| `prompt` | yes | The prompt to send to the tool. Quote it as a single shell argument. |
+| `--tool-arg` | no | Extra arguments passed through verbatim to the underlying tool. Repeatable. For example, to pass files to `opencode`: `--tool-arg --file --tool-arg /path/to/file`. |
+| `--max-tokens` | no | Override the model's `max_completion_tokens` for this run. The database value is only a default; the actual limit is the model's context length. Use this to request more output tokens when needed. |
 
 ### Common model aliases
 
@@ -40,3 +42,7 @@ When the user says one of these, map to the corresponding database ID:
 | `gpt-oss`, `gpt-oss-120b`, `sambanova/gpt-oss-120b` | `gpt-oss-120b` |
 
 If unsure, run `/list-models` first to verify the model exists.
+
+### Available Tools and Documentation:
+- [Continue](tools/continue.md)
+- [Opencode](tools/opencode.md)
