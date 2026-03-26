@@ -68,6 +68,16 @@ When the user says one of these, map to the corresponding database ID:
 
 If unsure, run `/list-models` first to verify the model exists.
 
+### Long-running tasks and progress tracking
+
+The coding tool's output is only visible after it finishes. For long or multi-step tasks, include instructions in the prompt telling the sub-agent to write progress updates to a file (e.g. `/tmp/progress_<task>.md`). This way, the caller can check on progress without waiting for the full output.
+
+For example, when constructing the prompt, append something like:
+
+> As you work, write periodic progress updates to `/tmp/progress_<unique_id>.md`. Include what phase you are on, what you have completed, and what remains. Update this file after each major step.
+
+After launching the tool, you can monitor progress by reading that file periodically.
+
 ### Available Tools and Documentation:
 - [Continue](tools/continue.md)
 - [Opencode](tools/opencode.md)
