@@ -1,8 +1,9 @@
 ---
 name: code
-description: Run a powerful coding tool as a sub-agent with a given model and prompt. Use when the user asks to "run continue", "run opencode", "use a coding agent", or wants to delegate a coding task to a sub-agent tool. This is also a suitable command for code reviews and second opinions, and should be used to consult on complex tasks.
+description: Run a powerful coding tool as a sub-agent with a given model and prompt. This skill is suitable whenever tasks need to be run and summarized (e.g. build-and-test), code reviews and edits, second opinions are needed, and can be used to consult on complex tasks.
 argument-hint: <tool> <model> <cwd> <prompt> [--max-tokens <n>] [--tool-arg <arg>...]
 allowed-tools: Bash(bash *)
+context: fork
 ---
 
 # Code
@@ -57,27 +58,27 @@ code.sh opencode MiniMax-M2.5 /project "prompt" \
   --tool-arg="-f" --tool-arg="src/utils.py"
 ```
 
-### Common model aliases
+## Execution model
 
-When the user says one of these, map to the corresponding database ID:
+**Always run the Bash call with `run_in_background: true`.** The coding tool can take several minutes to complete, and running it in the foreground will block the conversation. Running in the background avoids timeout issues and lets you monitor progress or respond to the user while the task runs.
 
-| User says | Database model ID |
-|---|---|
-| `MiniMax`, `MiniMax-M2.5`, `sambanova/MiniMax-M2.5` | `MiniMax-M2.5` |
-| `gpt-oss`, `gpt-oss-120b`, `sambanova/gpt-oss-120b` | `gpt-oss-120b` |
+### Progress tracking
+Since the tool runs in the background, include instructions in the prompt telling the sub-agent to write progress updates to a file. This lets you (and the user) check on progress without waiting for the task to finish.
 
-If unsure, run `/list-models` first to verify the model exists.
-
-### Long-running tasks and progress tracking
-
-The coding tool's output is only visible after it finishes. For long or multi-step tasks, include instructions in the prompt telling the sub-agent to write progress updates to a file (e.g. `/tmp/progress_<task>.md`). This way, the caller can check on progress without waiting for the full output.
-
-For example, when constructing the prompt, append something like:
+When constructing the prompt, always append something like:
 
 > As you work, write periodic progress updates to `/tmp/progress_<unique_id>.md`. Include what phase you are on, what you have completed, and what remains. Update this file after each major step.
 
-After launching the tool, you can monitor progress by reading that file periodically.
+After launching the tool, periodically read the progress file to monitor status and report back to the user.
 
-### Available Tools and Documentation:
-- [Continue](tools/continue.md)
-- [Opencode](tools/opencode.md)
+### Providing Context:
+The coding tool is given the project directory and the prompt.
+It does not have access to the terminal history or the broader system context unless you explicitly provide it via the prompt or attached files.
+If the user provided instructions (including via AGENTS.md, CLAUDE.md, etc.) which are relevant to the task, include them as well.
+Additionally, if available, provide instructions for testing the code or verifying the task is complete.
+
+
+# Available Tools and Documentation:
+- [Continue](./tools/continue.md)
+- [Opencode](./tools/opencode.md)
+

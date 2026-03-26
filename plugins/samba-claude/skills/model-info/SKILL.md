@@ -3,6 +3,7 @@ name: model-info
 description: Show all models available on the SambaNova platform with their context length and max completion tokens. Use when the user asks "what models are available", "show platform models", or needs to look up model parameters before adding one to the database.
 allowed-tools: Bash(bash *)
 agent: general-purpose
+context: fork
 ---
 
 # Model Info

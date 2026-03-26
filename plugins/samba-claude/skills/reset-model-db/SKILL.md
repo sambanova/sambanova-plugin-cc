@@ -2,6 +2,7 @@
 name: reset-model-db
 description: Reset the model parameters database, clearing all entries. Use when the user asks to "reset the database", "clear the model database", or "wipe model parameters".
 allowed-tools: Bash(bash *)
+context: fork
 ---
 
 # Reset Model Database

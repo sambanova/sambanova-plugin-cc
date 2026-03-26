@@ -2,6 +2,7 @@
 name: setup
 description: Set up the skills environment by creating a virtual environment and installing agent_shims. Use when the user asks to "set up", "install dependencies", or "initialize the environment".
 allowed-tools: Bash(bash *)
+context: fork
 ---
 
 # Setup
