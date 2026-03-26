@@ -5,6 +5,7 @@ import tempfile
 
 import jinja2
 
+from agent_shims.environment import get_sambanova_key
 from agent_shims.model import Model
 
 
@@ -30,7 +31,6 @@ def run(model: Model, prompt: str, cwd: str, extra_args: list[str] | None = None
         return subprocess.run(
             cmd,
             cwd=cwd,
-            capture_output=True,
             text=True,
-            env={**os.environ, "OPENCODE_CONFIG": f.name},
+            env={**os.environ, "OPENCODE_CONFIG": f.name, "SAMBANOVA_API_KEY": get_sambanova_key()},
         )

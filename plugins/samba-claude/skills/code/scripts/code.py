@@ -32,11 +32,7 @@ def main():
     elif args.tool == "opencode":
         result = opencode.run(model, args.prompt, args.cwd, args.tool_arg)
 
-    if result.stdout:
-        print(result.stdout, end="")
-    if result.returncode != 0:
-        print(result.stderr, end="", file=sys.stderr)
-        sys.exit(result.returncode)
+    sys.exit(result.returncode)
 
 
 if __name__ == "__main__":

@@ -36,22 +36,25 @@ DO NOT RUN THIS SCRIPT DIRECTLY OUTSIDE THE CONTEXT OF THIS SKILL.
 **Caveat:** Values that start with `-` (i.e. flags) are ambiguous to argparse. Use the `=` syntax (`--tool-arg="--flag"`) to avoid parsing errors.
 
 ```bash
+# Basic usage with continue
+code.sh continue MiniMax-M2.5 /project "prompt"
+
+# Override max tokens to 64k
+code.sh continue MiniMax-M2.5 /project "prompt" --max-tokens 65536
+
+# Pass extra arguments through to continue
+code.sh continue MiniMax-M2.5 /project "prompt" \
+  --max-tokens 16000 \
+  --tool-arg="--thinking"
+
 # Attach a file to opencode (note: = syntax for the -f flag)
 code.sh opencode MiniMax-M2.5 /project "prompt" \
   --tool-arg="-f" --tool-arg="/path/to/file.py"
 
-# Multiple files
+# Multiple files with opencode
 code.sh opencode MiniMax-M2.5 /project "prompt" \
   --tool-arg="-f" --tool-arg="src/main.py" \
   --tool-arg="-f" --tool-arg="src/utils.py"
-
-# Override max tokens to 64k
-code.sh opencode MiniMax-M2.5 /project "prompt" --max-tokens 65536
-
-# Combine both
-code.sh opencode MiniMax-M2.5 /project "prompt" \
-  --max-tokens 16000 \
-  --tool-arg="--thinking"
 ```
 
 ### Common model aliases
