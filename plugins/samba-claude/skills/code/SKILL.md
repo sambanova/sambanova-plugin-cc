@@ -1,6 +1,6 @@
 ---
 name: code
-description: Run a powerful coding tool as a sub-agent with a given model and prompt. This skill is suitable whenever tasks need to be run and summarized (e.g. build-and-test), code reviews and edits, second opinions are needed, and can be used to consult on complex tasks.
+description: Run a powerful coding tool as a sub-agent with a given model and prompt. This skill should be used whenever tasks need to be run (e.g. build-and-test), code reviews and edits, second opinions are needed, or files need to be read and summarized. This skill can also perform actions such as `git`, `Read`, etc., so it is capable of complex tasks and does not need pre-processing.
 argument-hint: <tool> <model> <cwd> <prompt> [--max-tokens <n>] [--tool-arg <arg>...]
 allowed-tools: Bash(bash *)
 context: fork
@@ -9,15 +9,15 @@ context: fork
 # Code
 
 Run a coding tool as a sub-agent, suitable for a variety of tasks such as code review, ideation, and implementation.
-This skill is particularly powerful, and can handle code reviews, run commands (i.e. git diff, git rebase, etc.), and other tasks by itself internally.
+This skill is powerful, and can handle code reviews, run commands (i.e. git diff, git rebase, etc.), and other tasks by itself internally.
 
 ## Instructions
 
 The user's request is in natural language. You must extract the following positional arguments and pass them to the script. Do NOT pass the raw user text as-is. If needed, write the prompt to a file and have the tool read that file instead.
-Prefer passing the file in as an input with instructions to read said file over using another tool such as `cat` to inject it into the command line.
 
 Run: `bash ${CLAUDE_SKILL_DIR}/scripts/code.sh <tool> <model> <cwd> <prompt> [--tool-arg <arg>...]`.
 DO NOT RUN THIS SCRIPT DIRECTLY OUTSIDE THE CONTEXT OF THIS SKILL.
+DO NOT POLL FOR COMPLETION. WAIT FOR THE NOTIFICATION THAT A TASK HAS COMPLETED.
 
 ### Arguments
 
@@ -60,22 +60,30 @@ code.sh opencode MiniMax-M2.5 /project "prompt" \
 
 ## Execution model
 
-**Always run the Bash call with `run_in_background: true`.** The coding tool can take several minutes to complete, and running it in the foreground will block the conversation. Running in the background avoids timeout issues and lets you monitor progress or respond to the user while the task runs.
+**Always run the Bash call with `run_in_background: true`.** The coding tool can take several minutes to complete, and running it in the foreground will block the conversation. Running in the background avoids timeout issues and lets you respond to the user while the task runs.
 
 ### Progress tracking
-Since the tool runs in the background, include instructions in the prompt telling the sub-agent to write progress updates to a file. This lets you (and the user) check on progress without waiting for the task to finish.
+Since the tool runs in the background, include instructions in the prompt telling the sub-agent to write progress updates to a file. This lets the user check on progress without waiting for the task to finish. Do not poll for completion.
 
 When constructing the prompt, always append something like:
 
-> As you work, write periodic progress updates to `/tmp/progress_<unique_id>.md`. Include what phase you are on, what you have completed, and what remains. Update this file after each major step.
-
-After launching the tool, periodically read the progress file to monitor status and report back to the user.
-
-### Providing Context:
+> As you work, write periodic progress updates to `tmp/progress_<unique_id>.md`. Include what phase you are on, what you have completed, and what remains. Update this file after each major step.
+# Providing Context:
 The coding tool is given the project directory and the prompt.
 It does not have access to the terminal history or the broader system context unless you explicitly provide it via the prompt or attached files.
 If the user provided instructions (including via AGENTS.md, CLAUDE.md, etc.) which are relevant to the task, include them as well.
 Additionally, if available, provide instructions for testing the code or verifying the task is complete.
+
+
+Since this skill is capable of using tools and calling commands, put the commands into the prompt instead of running them first and injecting their results.
+
+**Compound and fuse as many actions as reasonable into the instructions provided to the agent, including prelude and post-skill actions.**
+**For complex tasks with provided testable outcomes, prefer to include instructions such as:**
+> After making changes, run the tests to verify they work. If they fail, iterate and refine until the tests pass. However, if the task seems intractable, summarize the issues and report them instead.
+
+The agent is fully proficient in ALL common programming languages and file formats. Instructions that do not affect semantics such as "Add explicit template instantiations at the bottom of the .cpp:" or "Use `this->` prefix for dependent names" are generally not needed.
+
+As a general rule of thumb, prefer to think less about the minutae of the task, and instead let the agent deal with it.
 
 
 # Available Tools and Documentation:
