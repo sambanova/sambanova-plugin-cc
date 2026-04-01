@@ -8,3 +8,7 @@ fi
 
 source "$SKILLS_DIR/.env/bin/activate"
 pip install -e "$SKILLS_DIR/agent_shims"
+
+echo "Creating /tmp/samba-claude directories..."
+mkdir -p /tmp/samba-claude/prompts
+mkdir -p /tmp/samba-claude/progress

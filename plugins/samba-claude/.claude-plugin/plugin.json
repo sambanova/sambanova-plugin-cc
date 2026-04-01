@@ -1,6 +1,6 @@
 {
     "name": "samba-claude",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "description": "Delegate various tasks to Sambanova Cloud models.",
     "author": {
         "name": "Nathan Zhang",

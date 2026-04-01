@@ -96,7 +96,6 @@ and prompt. Useful for delegating tasks like code review, implementation, or ide
 
 | Scenario | Tool |
 |---|---|
-| MiniMax-M2.5 (any task) | `continue` — opencode has ~80% think-only failure rate |
 | Large code generation (1,000+ lines) | `continue` — iterates across turns, tested up to 3,700 lines |
 | Code review of large files (1,500+ lines) | `continue` — reads in chunks; opencode truncates at ~1,500 lines |
 | Qwen3-235B + C++ | `continue` (cleaner) or `opencode` |
