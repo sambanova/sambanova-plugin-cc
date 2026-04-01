@@ -9,22 +9,7 @@ Claude Code skills for managing SambaNova models and running coding sub-agents.
 In Claude Code, run:
 
 ```
-/plugin marketplace add git@github.sambanovasystems.com:nathanz/samba-claude.git
-```
-
-Or manually add it to your `.claude/settings.json`:
-
-```json
-{
-  "extraKnownMarketplaces": {
-    "samba-claude": {
-      "source": {
-        "source": "git",
-        "url": "git@github.sambanovasystems.com:nathanz/samba-claude.git"
-      }
-    }
-  }
-}
+/plugin marketplace add <this repository link>
 ```
 
 ### Step 2: Install the plugin
