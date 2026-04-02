@@ -18,6 +18,8 @@ In Claude Code, run:
 /plugin install samba-claude
 ```
 
+> **Note:** You may need to restart Claude Code after installing the plugin before running `/setup`.
+
 ### Step 3: Initialize
 
 Run `/setup` to create the virtual environment before using any other skill.
@@ -31,7 +33,11 @@ folder with the underlying shell and Python implementations.
 - Python 3 with `venv` support
 - A `SAMBANOVA_API_KEY` environment variable (required by `/model-info`, `/code`, and others.)
 - Run `/setup` before using any other skill
-- At least one of `continue` and `opencode` installed for use with `/code`.
+- At least one of `continue` or `opencode` installed (CLI available — no model configuration required)
+
+## How it works
+
+The plugin maintains its own local SQLite database (`model_params.db`) that stores all model configurations. This database is the sole source of truth — the plugin never reads your personal Continue or OpenCode config files. When you use `/code`, the plugin generates isolated, runtime-only configurations for the sub-agent, ensuring a clean separation from your existing IDE setups.
 
 ## Skills Overview
 
