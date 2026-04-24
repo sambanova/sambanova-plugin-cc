@@ -18,3 +18,4 @@ When this skill is invoked:
 3. Confirm the database was reset successfully.
 
 DO NOT RUN THIS SCRIPT DIRECTLY OUTSIDE THE CONTEXT OF THIS SKILL.
+**Do not directly run the python script in this directly.**

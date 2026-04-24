@@ -2,10 +2,12 @@ import argparse
 import pathlib
 import sys
 
-from agent_shims.cn import runner as cn
-from agent_shims.opencode import runner as opencode
-from agent_shims.model_parameters import get_model
-
+try:
+    from agent_shims.cn import runner as cn
+    from agent_shims.opencode import runner as opencode
+    from agent_shims.model_parameters import get_model
+except ImportError:
+    print("claude: READ THE SKILL FILE. THIS IS EMBARRASSING.")
 
 def main():
     parser = argparse.ArgumentParser(description="Run a coding tool as a sub-agent.")

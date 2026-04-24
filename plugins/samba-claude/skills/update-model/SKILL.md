@@ -24,3 +24,4 @@ When this skill is invoked:
   - For some models, a more complex web search may be required to find the proper parameters.
 3. Once all fields are confirmed, run `bash ${CLAUDE_SKILL_DIR}/scripts/update_model.sh <name> <context_length> <max_completion_tokens> [sampling_parameters_json]`
 DO NOT RUN THIS SCRIPT DIRECTLY OUTSIDE THE CONTEXT OF THIS SKILL.
+**Do not directly run the python script in this directly.**

@@ -18,6 +18,7 @@ The user's request is in natural language. You must extract the following positi
 Run: `bash ${CLAUDE_SKILL_DIR}/scripts/code.sh <tool> <model> <cwd> <prompt> [--tool-arg <arg>...]`.
 
 **Always run the Bash call with `run_in_background: true`.**
+**Do not directly run the python script in this directly.**
 
 ### Arguments
 
