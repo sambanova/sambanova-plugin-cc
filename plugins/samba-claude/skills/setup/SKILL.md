@@ -11,5 +11,5 @@ Initialize the skills environment.
 
 ## Instructions
 
-When this skill is invoked, run `bash ${CLAUDE_SKILL_DIR}/scripts/setup.sh`.
+When this skill is invoked, run `bash ${CLAUDE_SKILL_DIR}/scripts/setup.sh ${CLAUDE_PLUGIN_DIR}`
 DO NOT RUN THIS SCRIPT DIRECTLY OUTSIDE THE CONTEXT OF THIS SKILL.

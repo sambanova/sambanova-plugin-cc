@@ -12,8 +12,6 @@ Display information about all models available on the SambaNova platform. This s
 
 ## Instructions
 
-When this skill is invoked, run `bash ${CLAUDE_SKILL_DIR}/scripts/model_info.sh`.
+When this skill is invoked, run `${CLAUDE_PLUGIN_DIR}/.env/bin/python3 ${CLAUDE_SKILL_DIR}/model_info.py`.
 
 Display the output to the user.
-DO NOT RUN THIS SCRIPT DIRECTLY OUTSIDE THE CONTEXT OF THIS SKILL.
-**Do not directly run the python script in this directly.**

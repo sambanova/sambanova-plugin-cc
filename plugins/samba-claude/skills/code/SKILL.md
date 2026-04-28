@@ -15,10 +15,7 @@ This skill is powerful, and can handle code reviews, run commands (i.e. git diff
 
 The user's request is in natural language. You must extract the following positional arguments and pass them to the script. Do NOT pass the raw user text as-is. If needed, write the prompt to a file and have the tool read that file instead.
 
-Run: `bash ${CLAUDE_SKILL_DIR}/scripts/code.sh <tool> <model> <cwd> <prompt> [--tool-arg <arg>...]`.
-
-**Always run the Bash call with `run_in_background: true`.**
-**Do not directly run the python script in this directly.**
+Run: `${CLAUDE_PLUGIN_DIR}/.env/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/code.py <tool> <model> <cwd> <prompt> [--tool-arg <arg>...]`
 
 ### Arguments
 
@@ -39,22 +36,22 @@ Run: `bash ${CLAUDE_SKILL_DIR}/scripts/code.sh <tool> <model> <cwd> <prompt> [--
 
 ```bash
 # Basic usage with continue
-code.sh continue MiniMax-M2.5 /project "prompt"
+code.py continue MiniMax-M2.5 /project "prompt"
 
 # Override max tokens to 64k
-code.sh continue MiniMax-M2.5 /project "prompt" --max-tokens 65536
+code.py continue MiniMax-M2.5 /project "prompt" --max-tokens 65536
 
 # Pass extra arguments through to continue
-code.sh continue MiniMax-M2.5 /project "prompt" \
+code.py continue MiniMax-M2.5 /project "prompt" \
   --max-tokens 16000 \
   --tool-arg="--thinking"
 
 # Attach a file to opencode (note: = syntax for the -f flag)
-code.sh opencode MiniMax-M2.5 /project "prompt" \
+code.py opencode MiniMax-M2.5 /project "prompt" \
   --tool-arg="-f" --tool-arg="/path/to/file.py"
 
 # Multiple files with opencode
-code.sh opencode MiniMax-M2.5 /project "prompt" \
+code.py opencode MiniMax-M2.5 /project "prompt" \
   --tool-arg="-f" --tool-arg="src/main.py" \
   --tool-arg="-f" --tool-arg="src/utils.py"
 ```
