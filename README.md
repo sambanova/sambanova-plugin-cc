@@ -18,13 +18,6 @@ In Claude Code, run:
 /plugin install samba-claude
 ```
 
-### Step 3: Initialize
-
-Run `/setup` to create the virtual environment before using any other skill.
-
-These skills are invoked as slash commands (e.g. `/setup`, `/code`) within Claude Code.
-Each skill lives in its own directory containing a `SKILL.md` descriptor and a `scripts/`
-folder with the underlying shell and Python implementations.
 
 ## Prerequisites
 
@@ -45,17 +38,6 @@ folder with the underlying shell and Python implementations.
 | [reset-model-db](#reset-model-db) | `/reset-model-db` | Clear all entries from the model database |
 
 ## Skill Details
-
-### setup
-
-Initializes the skills environment by creating a Python virtual environment at
-`skills/.env/` and installing the `agent_shims` package in editable mode.
-
-**Run this first** — all other skills depend on the virtual environment it creates.
-
-```
-/setup
-```
 
 ### code
 
@@ -158,5 +140,4 @@ agent_shims/                # Shared Python package (installed by /setup)
 
 Each skill follows the same pattern:
 1. `SKILL.md` — metadata and instructions for Claude Code
-2. `scripts/*.sh` — shell wrapper that activates the venv and calls the Python script
 3. `scripts/*.py` — implementation using `agent_shims`

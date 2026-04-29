@@ -12,6 +12,6 @@ Display information about all models available on the SambaNova platform. This s
 
 ## Instructions
 
-When this skill is invoked, run `${CLAUDE_PLUGIN_DIR}/.env/bin/python3 ${CLAUDE_SKILL_DIR}/model_info.py`.
+When this skill is invoked, run `${SAMBA_CLAUDE_PYTHON} ${CLAUDE_SKILL_DIR}/model_info.py`.
 
 Display the output to the user.

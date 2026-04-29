@@ -14,7 +14,7 @@ Clears all entries from the model parameters database.
 When this skill is invoked:
 
 1. Warn the user that this will permanently delete all model entries from the database and ask for confirmation before proceeding.
-2. Once confirmed, run `${CLAUDE_PLUGIN_DIR}/.env/bin/python3 ${CLAUDE_SKILL_DIR}/reset_model_db.py`
+2. Once confirmed, run `${SAMBA_CLAUDE_PYTHON} ${CLAUDE_SKILL_DIR}/reset_model_db.py`
 3. Confirm the database was reset successfully.
 
 DO NOT RUN THIS SCRIPT DIRECTLY OUTSIDE THE CONTEXT OF THIS SKILL.

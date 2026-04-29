@@ -1,0 +1,15 @@
+{
+  "description": "samba-claude setup hook - initializes venv and agent_shims on session start",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "source \"${CLAUDE_PLUGIN_ROOT}/skills/setup/scripts/setup.sh\" \"${CLAUDE_PLUGIN_ROOT}\""
+          }
+        ]
+      }
+    ]
+  }
+}

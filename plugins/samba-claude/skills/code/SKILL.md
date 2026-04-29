@@ -15,7 +15,7 @@ This skill is powerful, and can handle code reviews, run commands (i.e. git diff
 
 The user's request is in natural language. You must extract the following positional arguments and pass them to the script. Do NOT pass the raw user text as-is. If needed, write the prompt to a file and have the tool read that file instead.
 
-Run: `${CLAUDE_PLUGIN_DIR}/.env/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/code.py <tool> <model> <cwd> <prompt> [--tool-arg <arg>...]`
+Run: `${SAMBA_CLAUDE_PYTHON} ${CLAUDE_SKILL_DIR}/scripts/code.py <tool> <model> <cwd> <prompt> [--tool-arg <arg>...]`
 
 ### Arguments
 
