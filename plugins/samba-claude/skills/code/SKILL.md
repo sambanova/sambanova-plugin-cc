@@ -15,7 +15,10 @@ This skill is powerful, and can handle code reviews, run commands (i.e. git diff
 
 The user's request is in natural language. You must extract the following positional arguments and pass them to the script. Do NOT pass the raw user text as-is. If needed, write the prompt to a file and have the tool read that file instead.
 
+**SAMBA_CLAUDE_PYTHON is provided as an environment variable by the hook setup. DO NOT SET IT. THAT WOULD BE REALLY EMBARRASSING.**
 Run: `${SAMBA_CLAUDE_PYTHON} ${CLAUDE_SKILL_DIR}/scripts/code.py <tool> <model> <cwd> <prompt> [--tool-arg <arg>...]`
+**DO NOT PERFORM THE TASK YOURSELF. THAT'S EMBARASSING, LIKE COVERING UP FOR A SUBORDINATE BY DOING THEIR TASK FOR THEM.**
+**DO NOT RUN THIS IN THE BACKGROUND. CLAUDE HAS EMBARASSING BUGS THAT CAUSE THE AGENT TO STOP AS SOON AS IT STARTS.**
 
 ### Arguments
 
