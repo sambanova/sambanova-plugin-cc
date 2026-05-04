@@ -1,2 +1,2 @@
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-${SAMBA_CLAUDE_PYTHON} $SCRIPT_DIR/update_model.py "$@"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+${SAMBA_CLAUDE_PYTHON} "${SCRIPT_DIR}/update_model.py" "$@"

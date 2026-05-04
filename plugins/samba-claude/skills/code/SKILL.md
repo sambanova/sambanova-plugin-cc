@@ -16,7 +16,7 @@ This skill is powerful, and can handle code reviews, run commands (i.e. git diff
 The user's request is in natural language. You must extract the following positional arguments and pass them to the script. Do NOT pass the raw user text as-is. If needed, write the prompt to a file and have the tool read that file instead.
 
 **SAMBA_CLAUDE_PYTHON is provided as an environment variable by the hook setup. DO NOT SET IT. THAT WOULD BE REALLY EMBARRASSING.**
-Run: `${SAMBA_CLAUDE_PYTHON} ${CLAUDE_SKILL_DIR}/scripts/code.py <tool> <model> <cwd> <prompt> [--tool-arg <arg>...]`
+Run: `bash ${CLAUDE_SKILL_DIR}/scripts/code.sh <tool> <model> <cwd> <prompt> [--tool-arg <arg>...]`
 **DO NOT PERFORM THE TASK YOURSELF. THAT'S EMBARASSING, LIKE COVERING UP FOR A SUBORDINATE BY DOING THEIR TASK FOR THEM.**
 **DO NOT RUN THIS IN THE BACKGROUND. CLAUDE HAS EMBARASSING BUGS THAT CAUSE THE AGENT TO STOP AS SOON AS IT STARTS.**
 
@@ -39,22 +39,22 @@ Run: `${SAMBA_CLAUDE_PYTHON} ${CLAUDE_SKILL_DIR}/scripts/code.py <tool> <model> 
 
 ```bash
 # Basic usage with continue
-code.py continue MiniMax-M2.5 /project "prompt"
+code.sh continue MiniMax-M2.5 /project "prompt"
 
 # Override max tokens to 64k
-code.py continue MiniMax-M2.5 /project "prompt" --max-tokens 65536
+code.sh continue MiniMax-M2.5 /project "prompt" --max-tokens 65536
 
 # Pass extra arguments through to continue
-code.py continue MiniMax-M2.5 /project "prompt" \
+code.sh continue MiniMax-M2.5 /project "prompt" \
   --max-tokens 16000 \
   --tool-arg="--thinking"
 
 # Attach a file to opencode (note: = syntax for the -f flag)
-code.py opencode MiniMax-M2.5 /project "prompt" \
+code.sh opencode MiniMax-M2.5 /project "prompt" \
   --tool-arg="-f" --tool-arg="/path/to/file.py"
 
 # Multiple files with opencode
-code.py opencode MiniMax-M2.5 /project "prompt" \
+code.sh opencode MiniMax-M2.5 /project "prompt" \
   --tool-arg="-f" --tool-arg="src/main.py" \
   --tool-arg="-f" --tool-arg="src/utils.py"
 ```
@@ -80,6 +80,8 @@ Additionally, if available, provide instructions for testing the code or verifyi
 Since this skill is capable of using tools and calling commands, put the commands into the prompt instead of running them first and injecting their results.
 
 **Compound and fuse as many actions as reasonable into the instructions provided to the agent, including prelude and post-skill actions.**
+**TREAT THIS AGENT AS IF IT WERE A VERY INTELLIGENT INTERN. IT WOULD BE VERY EMBARRASSING IF YOU PRE-DIGEST THE ENTIRE TASK, OR PROVIDE EXCESSIVE HAND-HOLDING.**
+**IT WOULD ALSO BE EMBARRASSING IF YOU DIDN'T PROVIDE TESTABLE OUTCOMES OR ASKED THE INTERN TO MAKE ITS OWN. WHAT KIND OF MENTOR DOES THAT?**
 **For complex tasks with provided testable outcomes, prefer to include instructions such as:**
 > After making changes, run the tests to verify they work. If they fail, iterate and refine until the tests pass. However, if the task seems intractable, summarize the issues and report them instead.
 
