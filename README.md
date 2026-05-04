@@ -53,7 +53,7 @@ and prompt. Useful for delegating tasks like code review, implementation, or ide
 | Argument | Required | Description |
 |---|---|---|
 | `tool` | Yes | `continue` or `opencode` (see tool selection guide below) |
-| `model` | Yes | Bare model ID from the database (e.g. `MiniMax-M2.5`, not `sambanova/MiniMax-M2.5`) |
+| `model` | Yes | Bare model ID from the database (e.g. `MiniMax-M2.7`, not `sambanova/MiniMax-M2.7`) |
 | `cwd` | Yes | Working directory for the tool (defaults to project root if unspecified) |
 | `prompt` | Yes | The prompt to send, quoted as a single shell argument |
 | `--max-tokens` | No | Override the model's `max_completion_tokens` for this run |
@@ -74,7 +74,7 @@ See `skills/code/prompting/` for detailed model and tool guides.
 
 | User says | Maps to |
 |---|---|
-| `MiniMax`, `sambanova/MiniMax-M2.5` | `MiniMax-M2.5` |
+| `MiniMax`, `sambanova/MiniMax-M2.7` | `MiniMax-M2.7` |
 | `gpt-oss`, `sambanova/gpt-oss-120b` | `gpt-oss-120b` |
 
 ### list-models

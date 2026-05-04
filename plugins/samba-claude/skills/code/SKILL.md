@@ -25,7 +25,7 @@ Run: `bash ${CLAUDE_SKILL_DIR}/scripts/code.sh <tool> <model> <cwd> <prompt> [--
 | Arg | Required | Description |
 |---|---|---|
 | `tool` | yes | Coding tool to use. See the section below under "Available Tools and Documentation" for more information. |
-| `model` | yes | Model name as stored in the parameters database (use `/list-models` to check). **Important:** Use the bare model ID (e.g. `MiniMax-M2.5`), not a provider-prefixed name (e.g. ~~`sambanova/MiniMax-M2.5`~~). The provider is configured automatically. |
+| `model` | yes | Model name as stored in the parameters database (use `/list-models` to check). **Important:** Use the bare model ID (e.g. `MiniMax-M2.7`), not a provider-prefixed name (e.g. ~~`sambanova/MiniMax-M2.7`~~). The provider is configured automatically. |
 | `cwd` | yes | Working directory for the tool. Default to the project root if not specified. |
 | `prompt` | yes | The prompt to send to the tool. Quote it as a single shell argument. **If the prompt contains shell-sensitive characters** (e.g. `$`, `<`, `>`, `(`, `)`, `` ` ``, `!`, `{`, `}`, `|`, `&`, `;`, `*`, `?`, `\`), write the prompt to a temporary file (e.g. `/tmp/samba-claude/prompts/prompt_XXXXX.md`) and pass the full path to that file as the prompt instead, with instructions for the tool to read it (e.g. `"Read the prompt from /tmp/samba-claude/prompts/prompt_XXXXX.md and follow its instructions."`). This avoids shell expansion and quoting issues. |
 | `--tool-arg` | no | Extra arguments passed through verbatim to the underlying tool. Repeatable — each `--tool-arg` takes exactly one value. See the **Passing `--tool-arg`** section below for syntax details. |
@@ -39,22 +39,22 @@ Run: `bash ${CLAUDE_SKILL_DIR}/scripts/code.sh <tool> <model> <cwd> <prompt> [--
 
 ```bash
 # Basic usage with continue
-code.sh continue MiniMax-M2.5 /project "prompt"
+code.sh continue MiniMax-M2.7 /project "prompt"
 
 # Override max tokens to 64k
-code.sh continue MiniMax-M2.5 /project "prompt" --max-tokens 65536
+code.sh continue MiniMax-M2.7 /project "prompt" --max-tokens 65536
 
 # Pass extra arguments through to continue
-code.sh continue MiniMax-M2.5 /project "prompt" \
+code.sh continue MiniMax-M2.7 /project "prompt" \
   --max-tokens 16000 \
   --tool-arg="--thinking"
 
 # Attach a file to opencode (note: = syntax for the -f flag)
-code.sh opencode MiniMax-M2.5 /project "prompt" \
+code.sh opencode MiniMax-M2.7 /project "prompt" \
   --tool-arg="-f" --tool-arg="/path/to/file.py"
 
 # Multiple files with opencode
-code.sh opencode MiniMax-M2.5 /project "prompt" \
+code.sh opencode MiniMax-M2.7 /project "prompt" \
   --tool-arg="-f" --tool-arg="src/main.py" \
   --tool-arg="-f" --tool-arg="src/utils.py"
 ```
