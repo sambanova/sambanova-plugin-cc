@@ -15,16 +15,17 @@ This skill is powerful, and can handle code reviews, run commands (i.e. git diff
 
 The user's request is in natural language. You must extract the following positional arguments and pass them to the script. Do NOT pass the raw user text as-is. If needed, write the prompt to a file and have the tool read that file instead.
 
-Run: `bash ${CLAUDE_SKILL_DIR}/scripts/code.sh <tool> <model> <cwd> <prompt> [--tool-arg <arg>...]`.
-
-**Always run the Bash call with `run_in_background: true`.**
+**SAMBA_CLAUDE_PYTHON is provided as an environment variable by the hook setup. DO NOT SET IT. THAT WOULD BE REALLY EMBARRASSING.**
+Run: `bash ${CLAUDE_SKILL_DIR}/scripts/code.sh <tool> <model> <cwd> <prompt> [--tool-arg <arg>...]`
+**DO NOT PERFORM THE TASK YOURSELF. THAT'S EMBARASSING, LIKE COVERING UP FOR A SUBORDINATE BY DOING THEIR TASK FOR THEM.**
+**DO NOT RUN THIS IN THE BACKGROUND. CLAUDE HAS EMBARASSING BUGS THAT CAUSE THE AGENT TO STOP AS SOON AS IT STARTS.**
 
 ### Arguments
 
 | Arg | Required | Description |
 |---|---|---|
 | `tool` | yes | Coding tool to use. See the section below under "Available Tools and Documentation" for more information. |
-| `model` | yes | Model name as stored in the parameters database (use `/list-models` to check). **Important:** Use the bare model ID (e.g. `MiniMax-M2.5`), not a provider-prefixed name (e.g. ~~`sambanova/MiniMax-M2.5`~~). The provider is configured automatically. |
+| `model` | yes | Model name as stored in the parameters database (use `/list-models` to check). **Important:** Use the bare model ID (e.g. `MiniMax-M2.7`), not a provider-prefixed name (e.g. ~~`sambanova/MiniMax-M2.7`~~). The provider is configured automatically. |
 | `cwd` | yes | Working directory for the tool. Default to the project root if not specified. |
 | `prompt` | yes | The prompt to send to the tool. Quote it as a single shell argument. **If the prompt contains shell-sensitive characters** (e.g. `$`, `<`, `>`, `(`, `)`, `` ` ``, `!`, `{`, `}`, `|`, `&`, `;`, `*`, `?`, `\`), write the prompt to a temporary file (e.g. `/tmp/samba-claude/prompts/prompt_XXXXX.md`) and pass the full path to that file as the prompt instead, with instructions for the tool to read it (e.g. `"Read the prompt from /tmp/samba-claude/prompts/prompt_XXXXX.md and follow its instructions."`). This avoids shell expansion and quoting issues. |
 | `--tool-arg` | no | Extra arguments passed through verbatim to the underlying tool. Repeatable — each `--tool-arg` takes exactly one value. See the **Passing `--tool-arg`** section below for syntax details. |
@@ -38,22 +39,22 @@ Run: `bash ${CLAUDE_SKILL_DIR}/scripts/code.sh <tool> <model> <cwd> <prompt> [--
 
 ```bash
 # Basic usage with continue
-code.sh continue MiniMax-M2.5 /project "prompt"
+code.sh continue MiniMax-M2.7 /project "prompt"
 
 # Override max tokens to 64k
-code.sh continue MiniMax-M2.5 /project "prompt" --max-tokens 65536
+code.sh continue MiniMax-M2.7 /project "prompt" --max-tokens 65536
 
 # Pass extra arguments through to continue
-code.sh continue MiniMax-M2.5 /project "prompt" \
+code.sh continue MiniMax-M2.7 /project "prompt" \
   --max-tokens 16000 \
   --tool-arg="--thinking"
 
 # Attach a file to opencode (note: = syntax for the -f flag)
-code.sh opencode MiniMax-M2.5 /project "prompt" \
+code.sh opencode MiniMax-M2.7 /project "prompt" \
   --tool-arg="-f" --tool-arg="/path/to/file.py"
 
 # Multiple files with opencode
-code.sh opencode MiniMax-M2.5 /project "prompt" \
+code.sh opencode MiniMax-M2.7 /project "prompt" \
   --tool-arg="-f" --tool-arg="src/main.py" \
   --tool-arg="-f" --tool-arg="src/utils.py"
 ```
@@ -79,6 +80,8 @@ Additionally, if available, provide instructions for testing the code or verifyi
 Since this skill is capable of using tools and calling commands, put the commands into the prompt instead of running them first and injecting their results.
 
 **Compound and fuse as many actions as reasonable into the instructions provided to the agent, including prelude and post-skill actions.**
+**TREAT THIS AGENT AS IF IT WERE A VERY INTELLIGENT INTERN. IT WOULD BE VERY EMBARRASSING IF YOU PRE-DIGEST THE ENTIRE TASK, OR PROVIDE EXCESSIVE HAND-HOLDING.**
+**IT WOULD ALSO BE EMBARRASSING IF YOU DIDN'T PROVIDE TESTABLE OUTCOMES OR ASKED THE INTERN TO MAKE ITS OWN. WHAT KIND OF MENTOR DOES THAT?**
 **For complex tasks with provided testable outcomes, prefer to include instructions such as:**
 > After making changes, run the tests to verify they work. If they fail, iterate and refine until the tests pass. However, if the task seems intractable, summarize the issues and report them instead.
 

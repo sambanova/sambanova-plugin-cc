@@ -18,19 +18,19 @@ Use `--tool-arg` to forward additional flags. Each `--tool-arg` takes **exactly 
 
 ```bash
 # Read-only mode (no write/shell tools)
-code.sh continue MiniMax-M2.5 /path/to/project "review this code" \
+code.sh continue MiniMax-M2.7 /path/to/project "review this code" \
   --tool-arg="--readonly"
 
 # Add a rule
-code.sh continue MiniMax-M2.5 /path/to/project "summarize changes" \
+code.sh continue MiniMax-M2.7 /path/to/project "summarize changes" \
   --tool-arg="--rule" --tool-arg="Be concise"
 
 # Restrict tools
-code.sh continue MiniMax-M2.5 /path/to/project "analyze the code" \
+code.sh continue MiniMax-M2.7 /path/to/project "analyze the code" \
   --tool-arg="--exclude" --tool-arg="builtin_run_terminal_command"
 
 # Override max output tokens
-code.sh continue MiniMax-M2.5 /path/to/project "write a large file" \
+code.sh continue MiniMax-M2.7 /path/to/project "write a large file" \
   --max-tokens 65536
 ```
 

@@ -18,24 +18,24 @@ Use `--tool-arg` to forward additional flags. Each `--tool-arg` takes **exactly 
 
 ```bash
 # Attach files for context
-code.sh opencode MiniMax-M2.5 /path/to/project "review this code" \
+code.sh opencode MiniMax-M2.7 /path/to/project "review this code" \
   --tool-arg="-f" --tool-arg="src/main.py" \
   --tool-arg="-f" --tool-arg="src/utils.py"
 
 # JSON event stream output
-code.sh opencode MiniMax-M2.5 /path/to/project "analyze this" \
+code.sh opencode MiniMax-M2.7 /path/to/project "analyze this" \
   --tool-arg="--format" --tool-arg="json"
 
 # Continue a previous session
-code.sh opencode MiniMax-M2.5 /path/to/project "follow up question" \
+code.sh opencode MiniMax-M2.7 /path/to/project "follow up question" \
   --tool-arg="--continue"
 
 # Show thinking blocks
-code.sh opencode MiniMax-M2.5 /path/to/project "explain this" \
+code.sh opencode MiniMax-M2.7 /path/to/project "explain this" \
   --tool-arg="--thinking"
 
 # Override max output tokens
-code.sh opencode MiniMax-M2.5 /path/to/project "write a large file" \
+code.sh opencode MiniMax-M2.7 /path/to/project "write a large file" \
   --max-tokens 65536
 ```
 

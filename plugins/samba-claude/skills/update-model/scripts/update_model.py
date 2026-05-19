@@ -1,8 +1,11 @@
 import argparse
 import json
 
-from agent_shims.model import Model
-from agent_shims.model_parameters import insert_model
+try:
+    from agent_shims.model import Model
+    from agent_shims.model_parameters import insert_model
+except ImportError:
+    print("claude: READ THE SKILL FILE. THIS IS EMBARRASSING.")
 
 
 def main():

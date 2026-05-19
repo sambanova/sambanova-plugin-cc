@@ -18,15 +18,6 @@ In Claude Code, run:
 /plugin install samba-claude
 ```
 
-> **Note:** You may need to restart Claude Code after installing the plugin before running `/setup`.
-
-### Step 3: Initialize
-
-Run `/setup` to create the virtual environment before using any other skill.
-
-These skills are invoked as slash commands (e.g. `/setup`, `/code`) within Claude Code.
-Each skill lives in its own directory containing a `SKILL.md` descriptor and a `scripts/`
-folder with the underlying shell and Python implementations.
 
 ## Prerequisites
 
@@ -52,17 +43,6 @@ The plugin maintains its own local SQLite database (`model_params.db`) that stor
 
 ## Skill Details
 
-### setup
-
-Initializes the skills environment by creating a Python virtual environment at
-`skills/.env/` and installing the `agent_shims` package in editable mode.
-
-**Run this first** — all other skills depend on the virtual environment it creates.
-
-```
-/setup
-```
-
 ### code
 
 Runs a coding tool (`continue` or `opencode`) as a sub-agent with a specified model
@@ -77,7 +57,7 @@ and prompt. Useful for delegating tasks like code review, implementation, or ide
 | Argument | Required | Description |
 |---|---|---|
 | `tool` | Yes | `continue` or `opencode` (see tool selection guide below) |
-| `model` | Yes | Bare model ID from the database (e.g. `MiniMax-M2.5`, not `sambanova/MiniMax-M2.5`) |
+| `model` | Yes | Bare model ID from the database (e.g. `MiniMax-M2.7`, not `sambanova/MiniMax-M2.7`) |
 | `cwd` | Yes | Working directory for the tool (defaults to project root if unspecified) |
 | `prompt` | Yes | The prompt to send, quoted as a single shell argument |
 | `--max-tokens` | No | Override the model's `max_completion_tokens` for this run |
@@ -98,7 +78,7 @@ See `skills/code/prompting/` for detailed model and tool guides.
 
 | User says | Maps to |
 |---|---|
-| `MiniMax`, `sambanova/MiniMax-M2.5` | `MiniMax-M2.5` |
+| `MiniMax`, `sambanova/MiniMax-M2.7` | `MiniMax-M2.7` |
 | `gpt-oss`, `sambanova/gpt-oss-120b` | `gpt-oss-120b` |
 
 ### list-models
@@ -164,5 +144,4 @@ agent_shims/                # Shared Python package (installed by /setup)
 
 Each skill follows the same pattern:
 1. `SKILL.md` — metadata and instructions for Claude Code
-2. `scripts/*.sh` — shell wrapper that activates the venv and calls the Python script
 3. `scripts/*.py` — implementation using `agent_shims`

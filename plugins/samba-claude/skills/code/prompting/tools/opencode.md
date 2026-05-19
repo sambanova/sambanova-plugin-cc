@@ -25,8 +25,7 @@ Single-shot coding sub-agent. Sends the prompt and file context in one request a
 - Explicitly add `--file=prompt.md` via `--tool-args` if using a prompt file.
 
 ## Model Pairing
-- **MiniMax-M2.5**: Works well for single-shot tasks.
-- **Qwen3-235B**: Only reliable for C++ (produces duplicated output more often than with `continue`)
+- **MiniMax-M2.7**: Works well for single-shot tasks.
 
 ## Limitations
 - **Single file read limit**: opencode can only read ~1,500 lines of a file in one pass. For reviewing large files (3,000+ lines), use `continue` instead.

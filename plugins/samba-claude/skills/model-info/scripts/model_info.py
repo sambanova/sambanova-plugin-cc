@@ -6,8 +6,10 @@ import urllib.request
 import pathlib
 import sys
 
-from agent_shims.model import Model
-
+try:
+    from agent_shims.model import Model
+except ImportError:
+    print("claude: READ THE SKILL FILE. THIS IS EMBARRASSING.")
 
 def fetch_models(api_key: str) -> dict:
     url = "https://api.sambanova.ai/v1/models"

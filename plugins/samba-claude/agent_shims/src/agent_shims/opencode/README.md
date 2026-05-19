@@ -33,7 +33,7 @@ opencode run --file src/main.py "review this"
 | `--format default` | Formatted text output (default). Includes `<think>` blocks. |
 | `--format json` | Raw JSON event stream (one JSON object per line). Events include `step_start`, `text`, `tool_call`, `step_finish`. |
 | `--thinking` | Show thinking blocks in default format output. Off by default. |
-| `-m`, `--model <provider/model>` | Override the model (e.g. `sambanova/MiniMax-M2.5`). |
+| `-m`, `--model <provider/model>` | Override the model (e.g. `sambanova/MiniMax-M2.7`). |
 | `--dir <path>` | Working directory for the session. |
 | `--agent <name>` | Use a named agent definition. |
 
