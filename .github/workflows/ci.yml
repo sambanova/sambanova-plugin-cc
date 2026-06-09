@@ -35,6 +35,9 @@ jobs:
           done < <(find . -path ./.git -prune -o -name '*.json' -print0)
           exit $fail
 
+      - name: Install PyYAML
+        run: pip install pyyaml
+
       - name: Validate YAML files
         run: |
           python - <<'PY'
