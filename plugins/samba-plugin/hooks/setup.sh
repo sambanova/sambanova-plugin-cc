@@ -4,20 +4,10 @@ if [[ -z "$CLAUDE_PLUGIN_DIR" ]]; then
     exit 1
 fi
 
-if [ ! -d "${CLAUDE_PLUGIN_DIR}/.env" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv "${CLAUDE_PLUGIN_DIR}/.env"
-fi
+# Warm the venv eagerly at session start so the first MCP connect doesn't pay
+# the create/install cost (and risk the MCP startup timeout). This shares an
+# flock with the MCP bootstrap wrapper, so the two never clobber each other.
+"${CLAUDE_PLUGIN_DIR}/hooks/ensure_venv.sh" "$CLAUDE_PLUGIN_DIR"
 
-SENTINEL="${CLAUDE_PLUGIN_DIR}/.env/.installed_version"
-CURRENT_VERSION=$(python3 -c "import json; print(json.load(open('${CLAUDE_PLUGIN_DIR}/.claude-plugin/plugin.json'))['version'])" 2>/dev/null)
-
-if [ ! -f "$SENTINEL" ] || [ "$(cat "$SENTINEL")" != "$CURRENT_VERSION" ]; then
-    "${CLAUDE_PLUGIN_DIR}/.env/bin/pip" install -e "${CLAUDE_PLUGIN_DIR}/agent_shims"
-    echo "$CURRENT_VERSION" > "$SENTINEL"
-fi
-
-mkdir -p /tmp/samba-plugin/prompts /tmp/samba-plugin/progress
-
-echo "export SAMBA_PLUGIN_PYTHON=\"${CLAUDE_PLUGIN_DIR}/.env/bin/python3\"" >> "$CLAUDE_ENV_FILE"
-
+echo "export SAMBANOVA_PLUGIN_CC_PYTHON=\"${CLAUDE_PLUGIN_DIR}/.env/bin/python3\"" >> "$CLAUDE_ENV_FILE"
+echo "export SAMBANOVA_PLUGIN_CC_MCP_SERVER=\"${CLAUDE_PLUGIN_DIR}/mcp_server/server.py\"" >> "$CLAUDE_ENV_FILE"

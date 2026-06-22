@@ -7,11 +7,13 @@ name = "agent-shims"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "jinja2>=3.1.6",
+    "anyio==4.13.0",
+    "jinja2==3.1.6",
+    "mcp[cli]==1.27.2",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"*" = ["*.jinja", "*.db"]
+"*" = ["*.jinja", "*.db", "*.md"]
