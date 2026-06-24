@@ -1,6 +1,7 @@
-# Skills
+# SambaNova Plugin for Claude Code
 
-Claude Code skills for managing SambaNova models and running coding sub-agents.
+Claude Code skills for managing SambaNova models and delegating coding tasks to a
+sub-agent running on SambaNova Cloud.
 
 ## Installation
 
@@ -18,24 +19,35 @@ In Claude Code, run:
 /plugin install samba-plugin
 ```
 
-
 ## Prerequisites
 
-- Python 3 with `venv` support
-- A `SAMBANOVA_API_KEY` environment variable (required by `/model-info`, `/code`, and others.)
-- Run `/setup` before using any other skill
-- At least one of `continue` or `opencode` installed (CLI available — no model configuration required)
+- **Python 3.11+** with `venv` support.
+- A **`SAMBANOVA_API_KEY`** (or `SAMBA_CLAUDE_API_KEY`) environment variable — required
+  by `/model-info` and `/code`.
+- The **[opencode](https://opencode.ai) CLI** installed and on your `PATH` (used by
+  `/code`; no model configuration of your own is required).
+
+There is **no manual setup step**. On each session start the plugin builds an isolated
+virtual environment (`.env/`) and installs its `agent_shims` package into it
+automatically, so the skills are ready to use.
 
 ## How it works
 
-The plugin maintains its own local SQLite database (`model_params.db`) that stores all model configurations. This database is the sole source of truth — the plugin never reads your personal Continue or OpenCode config files. When you use `/code`, the plugin generates isolated, runtime-only configurations for the sub-agent, ensuring a clean separation from your existing IDE setups.
+The plugin ships an **MCP server** (`mcp_server/server.py`, launched via
+`mcp_server/bootstrap.sh` and registered in `.mcp.json`) that exposes each skill as an
+MCP tool backed by the shared `agent_shims` Python package.
+
+It maintains its own local SQLite database of model parameters
+(`agent_shims/model_parameters/parameters.db`) as the **sole source of truth** — the
+plugin never reads your personal opencode config. When you run `/code`, it generates an
+isolated, runtime-only opencode configuration for the sub-agent, keeping it cleanly
+separated from your own setup.
 
 ## Skills Overview
 
 | Skill | Command | Description |
 |---|---|---|
-| [setup](#setup) | `/setup` | Initialize the virtual environment and install `agent_shims` |
-| [code](#code) | `/code <tool> <model> <prompt> <cwd> [files...]` | Delegate a coding task to a sub-agent |
+| [code](#code) | `/code <model> <cwd> <prompt> [--max-tokens <n>] [--session <id>]` | Delegate a coding task to a sub-agent |
 | [list-models](#list-models) | `/list-models` | List all models in the local parameters database |
 | [model-info](#model-info) | `/model-info` | Show all models available on the SambaNova platform |
 | [update-model](#update-model) | `/update-model <name> <ctx> <max_tokens> [params_json]` | Add or update a model in the database |
@@ -45,41 +57,27 @@ The plugin maintains its own local SQLite database (`model_params.db`) that stor
 
 ### code
 
-Runs a coding tool (`continue` or `opencode`) as a sub-agent with a specified model
-and prompt. Useful for delegating tasks like code review, implementation, or ideation.
+Runs [opencode](https://opencode.ai) as a sub-agent with a specified model and prompt —
+useful for delegating tasks like code review, implementation, ideation, or running
+commands and summarizing the result.
 
 ```
-/code <tool> <model> <cwd> <prompt> [--max-tokens <n>] [--tool-arg <arg>...]
+/code <model> <cwd> <prompt> [--max-tokens <n>] [--session <id>]
 ```
 
 **Arguments:**
 
 | Argument | Required | Description |
 |---|---|---|
-| `tool` | Yes | `continue` or `opencode` (see tool selection guide below) |
-| `model` | Yes | Bare model ID from the database (e.g. `MiniMax-M2.7`, not `sambanova/MiniMax-M2.7`) |
-| `cwd` | Yes | Working directory for the tool (defaults to project root if unspecified) |
-| `prompt` | Yes | The prompt to send, quoted as a single shell argument |
-| `--max-tokens` | No | Override the model's `max_completion_tokens` for this run |
-| `--tool-arg` | No | Extra args passed to the underlying tool (repeatable, use `=` syntax for flags: `--tool-arg="--file"`) |
+| `model` | Yes | Bare model ID from the database (e.g. `MiniMax-M2.7`, not `sambanova/MiniMax-M2.7`). Use `/list-models` to see options. |
+| `cwd` | Yes | Working directory for the sub-agent. Defaults to `$CLAUDE_PROJECT_DIR` when omitted; an absolute path is recommended. |
+| `prompt` | Yes | The prompt to send, quoted as a single argument. |
+| `--max-tokens` | No | Override the model's `max_completion_tokens` for this run. |
+| `--session` | No | Resume a previous `/code` session (from a prior call) to preserve context. Resuming must use the **same `cwd`** as the original call. |
 
-**Tool selection guide:**
-
-| Scenario | Tool |
-|---|---|
-| Large code generation (1,000+ lines) | `continue` — iterates across turns, tested up to 3,700 lines |
-| Code review of large files (1,500+ lines) | `continue` — reads in chunks; opencode truncates at ~1,500 lines |
-| Qwen3-235B + C++ | `continue` (cleaner) or `opencode` |
-| Side-effect-free output needed | `opencode` — doesn't modify filesystem |
-
-See `skills/code/prompting/` for detailed model and tool guides.
-
-**Common model aliases:**
-
-| User says | Maps to |
-|---|---|
-| `MiniMax`, `sambanova/MiniMax-M2.7` | `MiniMax-M2.7` |
-| `gpt-oss`, `sambanova/gpt-oss-120b` | `gpt-oss-120b` |
+The model must already be in the local database (`/list-models` to check, `/update-model`
+to add one). The sub-agent is sandboxed to `cwd`; grant access to directories outside it
+only when needed.
 
 ### list-models
 
@@ -94,10 +92,10 @@ context length, max completion tokens, and sampling parameters.
 
 Queries the SambaNova API (`https://api.sambanova.ai/v1/models`) to display the full
 catalog of available models with their context length and max completion tokens.
-Requires `SAMBANOVA_API_KEY` to be set.
+Requires `SAMBANOVA_API_KEY` (or `SAMBA_CLAUDE_API_KEY`) to be set.
 
-This shows what models *can* be used, as opposed to `/list-models` which shows what
-is stored locally.
+This shows what models *can* be used, as opposed to `/list-models` which shows what is
+stored locally.
 
 ```
 /model-info
@@ -105,20 +103,18 @@ is stored locally.
 
 ### update-model
 
-Inserts or updates a model entry in the local parameters database. Looks up model
-details from `/model-info` and sampling parameters from HuggingFace documentation
-before writing.
+Inserts or updates a model entry in the local parameters database. Look up model details
+via `/model-info` and sampling parameters from the model's documentation before writing.
 
 ```
 /update-model <name> <context_length> <max_completion_tokens> [sampling_parameters_json]
 ```
 
-The sampling parameters argument is a JSON string (e.g. `'{"temperature": 0.7, "topP": 0.9}'`).
+The sampling parameters argument is a JSON string (e.g. `'{"temperature": 0.7, "top_p": 0.9}'`).
 
 ### reset-model-db
 
-Deletes all entries from the model parameters database. Prompts for confirmation
-before proceeding.
+Deletes all entries from the model parameters database.
 
 ```
 /reset-model-db
@@ -127,21 +123,23 @@ before proceeding.
 ## Architecture
 
 ```
-skills/
-├── setup/                  # Environment initialization
-├── code/                   # Sub-agent coding tool runner
-├── list-models/            # Database model listing
-├── model-info/             # SambaNova platform model catalog
-├── update-model/           # Database model upsert
-└── reset-model-db/         # Database reset
-
-agent_shims/                # Shared Python package (installed by /setup)
-├── model.py                # Model dataclass (id, context_length, max_completion_tokens, sampling_parameters)
-├── model_parameters/       # SQLite-backed model parameter storage
-├── cn/                     # Continue runner
-└── opencode/               # Opencode runner
+plugins/samba-plugin/
+├── .mcp.json                   # registers the plugin's MCP server
+├── mcp_server/
+│   ├── bootstrap.sh            # ensures the venv, then launches the server
+│   └── server.py               # FastMCP server exposing the skills as MCP tools
+├── hooks/                      # SessionStart hook warms the venv (no manual setup)
+├── skills/                     # one SKILL.md per skill (thin MCP front-ends)
+│   ├── code/
+│   ├── list-models/
+│   ├── model-info/
+│   ├── update-model/
+│   └── reset-model-db/
+└── agent_shims/                # shared Python package (installed into .env)
+    ├── model.py                # Model dataclass (id, context_length, max_completion_tokens, sampling_parameters)
+    ├── model_parameters/       # SQLite-backed model parameter storage (parameters.db)
+    └── opencode/               # opencode runner + injected rules/
 ```
 
-Each skill follows the same pattern:
-1. `SKILL.md` — metadata and instructions for Claude Code
-3. `scripts/*.py` — implementation using `agent_shims`
+Each skill is a thin `SKILL.md` front-end: it adds the prompting discipline, while the
+implementation lives in the MCP server's tools, backed by `agent_shims`.
