@@ -23,7 +23,7 @@ def get_model(model_id: str) -> Model | None:
         id=row[0],
         context_length=row[1],
         max_completion_tokens=row[2],
-        sampling_parameters=json.loads(row[3]),
+        sampling_parameters=json.loads(row[3]) if row[3] else {},
     )
 
 

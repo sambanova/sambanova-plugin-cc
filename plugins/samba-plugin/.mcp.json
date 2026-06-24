@@ -1,0 +1,9 @@
+{
+    "mcpServers": {
+        "sambanova-plugin-cc": {
+            "command": "${CLAUDE_PLUGIN_ROOT}/mcp_server/bootstrap.sh",
+            "args": [],
+            "timeout": 18000000
+        }
+    }
+}

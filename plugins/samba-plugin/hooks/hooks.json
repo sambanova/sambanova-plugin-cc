@@ -1,5 +1,5 @@
 {
-  "description": "samba-plugin setup hook - initializes venv and agent_shims on session start",
+  "description": "sambanova-plugin-cc setup hook - initializes venv and agent_shims on session start",
   "hooks": {
     "SessionStart": [
       {

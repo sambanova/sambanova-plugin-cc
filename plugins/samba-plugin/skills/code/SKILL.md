@@ -1,103 +1,122 @@
 ---
 name: code
-description: Run a powerful coding tool as a sub-agent with a given model and prompt. This skill should be used whenever tasks need to be run (e.g. build-and-test), code reviews and edits, second opinions are needed, or files need to be read and summarized.
-argument-hint: <tool> <model> <cwd> <prompt> [--max-tokens <n>] [--tool-arg <arg>...]
-allowed-tools: Bash(bash *), Write(/tmp/samba-plugin/**)
-context: fork
+description: Run a powerful coding tool as a sub-agent with a given model and prompt. This skill should be used when tasks need to be run (e.g. build-and-test), code reviews and edits, second opinions are needed, or files need to be read and summarized.
+argument-hint: <model> <cwd> <prompt> [--max-tokens <n>] [--session <id>]
+allowed-tools: mcp__plugin_sambanova-plugin-cc_sambanova-plugin-cc__code, mcp__plugin_sambanova-plugin-cc_sambanova-plugin-cc__list_models, Write, Read
 ---
 
 # Code
 
-Run a coding tool as a sub-agent, suitable for a variety of tasks such as code review, ideation, and implementation.
-This skill is powerful, and can handle code reviews, run commands (i.e. git diff, git rebase, etc.), and other tasks by itself internally.
+Run coding tool as sub-agent. Good for code review, ideation, implementation. Handle code reviews, run commands (i.e. git diff, git rebase, etc.), other tasks solo.
+
+This skill is the in-Claude-Code front end. The implementation lives in the
+plugin's MCP server (the `code` tool); this skill adds the prompting discipline
+below. The skill runs inline (synchronous): the `code` MCP call blocks until the
+sub-agent finishes, so its result is available in the same turn. For running
+several jobs at once, see **Parallel execution** below.
+
+## Parallel execution
+The MCP server runs tool calls concurrently — each opencode run is offloaded to a
+worker thread, so independent `code` requests execute in parallel server-side.
+
+BUT the Claude Code main loop **serializes** `code` calls issued together in one
+message: it sends the next request only after the previous returns. Verified —
+three 20s jobs batched in one message ran back-to-back (~74s), not concurrently.
+So batching calls does **not** parallelize.
+
+To actually run `code` jobs concurrently, **fan out separate background agents**,
+each making one `code` call. Independent agents dispatch concurrently and the
+server runs them in parallel (verified: three agent-driven jobs overlapped, ~29s
+total). Guidance:
+- Use **fresh `general-purpose` agents**, not forks. A `context: fork` agent
+  inherits the entire parent conversation (heavy per agent); a fresh agent starts
+  near-empty (~12k tokens overhead per agent observed).
+- For a **single** job, call `code` inline — synchronous, no agent overhead.
+- Fan-out also isolates each job's (possibly large) output in its own context;
+  only a summary returns to the main thread.
 
 ## Instructions
 
-The user's request is in natural language. You must extract the following positional arguments and pass them to the script. Do NOT pass the raw user text as-is. If needed, write the prompt to a file and have the tool read that file instead.
+User request is natural language. Extract the arguments and call the MCP tool
+`mcp__plugin_sambanova-plugin-cc_sambanova-plugin-cc__code`. DO NOT pass raw
+user text — shape it into a proper prompt per the guidelines below.
 
-**SAMBA_PLUGIN_PYTHON is provided as an environment variable by the hook setup. DO NOT SET IT. THAT WOULD BE REALLY EMBARRASSING.**
-Run: `bash ${CLAUDE_SKILL_DIR}/scripts/code.sh <tool> <model> <cwd> <prompt> [--tool-arg <arg>...]`
-**DO NOT PERFORM THE TASK YOURSELF. THAT'S EMBARASSING, LIKE COVERING UP FOR A SUBORDINATE BY DOING THEIR TASK FOR THEM.**
-**DO NOT RUN THIS IN THE BACKGROUND. CLAUDE HAS EMBARASSING BUGS THAT CAUSE THE AGENT TO STOP AS SOON AS IT STARTS.**
+Requires the `sambanova-plugin-cc` MCP server to be running.
 
-### Arguments
+### MCP tool arguments
 
 | Arg | Required | Description |
 |---|---|---|
-| `tool` | yes | Coding tool to use. See the section below under "Available Tools and Documentation" for more information. |
-| `model` | yes | Model name as stored in the parameters database (use `/list-models` to check). **Important:** Use the bare model ID (e.g. `MiniMax-M2.7`), not a provider-prefixed name (e.g. ~~`sambanova/MiniMax-M2.7`~~). The provider is configured automatically. |
-| `cwd` | yes | Working directory for the tool. Default to the project root if not specified. |
-| `prompt` | yes | The prompt to send to the tool. Quote it as a single shell argument. **If the prompt contains shell-sensitive characters** (e.g. `$`, `<`, `>`, `(`, `)`, `` ` ``, `!`, `{`, `}`, `|`, `&`, `;`, `*`, `?`, `\`), write the prompt to a temporary file (e.g. `/tmp/samba-plugin/prompts/prompt_XXXXX.md`) and pass the full path to that file as the prompt instead, with instructions for the tool to read it (e.g. `"Read the prompt from /tmp/samba-plugin/prompts/prompt_XXXXX.md and follow its instructions."`). This avoids shell expansion and quoting issues. |
-| `--tool-arg` | no | Extra arguments passed through verbatim to the underlying tool. Repeatable — each `--tool-arg` takes exactly one value. See the **Passing `--tool-arg`** section below for syntax details. |
-| `--max-tokens` | no | Override the model's `max_completion_tokens` for this run. The database value is only a default; the actual limit is the model's context length. Use this to request more output tokens when needed. |
+| `model` | yes | Model name from parameters database (use `/list-models`). **Important:** bare model ID (e.g. `MiniMax-M2.7`), not provider-prefixed (e.g. ~~`sambanova/MiniMax-M2.7`~~). Provider auto-configured. |
+| `prompt` | yes | Prompt for the tool. References to external tools (git, grep, find, etc.) are valid prompt text — pass verbatim, never pre-resolve. |
+| `cwd` | no | Working dir for the tool. Defaults to `$CLAUDE_PROJECT_DIR`; an absolute path is recommended. Must be an existing dir. |
+| `session_id` | no | Session ID from a prior `code` call, to continue that train of thought. Must reuse the **same `cwd`** as the original call — opencode keys sessions by project root, so a different/defaulted cwd silently starts fresh. |
+| `max_tokens` | no | Override model's `max_completion_tokens`. DB value is default; real limit is model context length. Use for more output tokens. |
+| `tool_args` | no | Extra args passed verbatim to opencode (after the prompt). To attach a file as **read-only** context (loaded into the message, works even outside `cwd`), use `["-f", "/abs/path"]`. |
+| `external_dirs` | no | Absolute paths of dirs **outside `cwd`** to grant the sub-agent **read+write** access to (opencode otherwise sandboxes it to `cwd`). Use when the task must read or write files outside the project dir. opencode has no read-only external grant, so this is read+write — for read-only context prefer `tool_args ["-f", ...]`. |
 
-### Passing `--tool-arg`
+The tool returns the opencode session ID and the model's text output (or its
+reasoning trace, flagged, when the run ends with no text event). Surface the
+session ID if the user may want to continue the session.
 
-`--tool-arg` uses argparse `action="append"`, so each occurrence takes **exactly one value**. To pass a flag and its value to the underlying tool, use two separate `--tool-arg` entries.
+# Core Guidelines
+Not follow = **very embarrassing**.
 
-**Caveat:** Values that start with `-` (i.e. flags) are ambiguous to argparse. Use the `=` syntax (`--tool-arg="--flag"`) to avoid parsing errors.
+Write prompts with the WRITE tool when they are long or structured. DO NOT use `cat`, `echo`, or shell commands unless you must.
 
-```bash
-# Basic usage with continue
-code.sh continue MiniMax-M2.7 /project "prompt"
+## Independent Action
+DO NOT DO TASK YOURSELF. EMBARRASSING LIKE COVERING FOR SUBORDINATE BY DOING THEIR WORK.
+DO NOT PRE-DIGEST TASKS SUCH AS RUNNING `git diff` OR `grep` FIRST. LET THE `code` TOOL DO THE WORK.
 
-# Override max tokens to 64k
-code.sh continue MiniMax-M2.7 /project "prompt" --max-tokens 65536
+### Pre-digestion anti-pattern
+If the user's request references an external tool (git, grep, find, curl, etc.), pass the
+instruction **verbatim** — do NOT run the tool yourself to resolve it first.
 
-# Pass extra arguments through to continue
-code.sh continue MiniMax-M2.7 /project "prompt" \
-  --max-tokens 16000 \
-  --tool-arg="--thinking"
+**BAD** — pre-digesting: call `code` with prompt `"Review these changes: <pasted output of git diff main>"`.
 
-# Attach a file to opencode (note: = syntax for the -f flag)
-code.sh opencode MiniMax-M2.7 /project "prompt" \
-  --tool-arg="-f" --tool-arg="/path/to/file.py"
-
-# Multiple files with opencode
-code.sh opencode MiniMax-M2.7 /project "prompt" \
-  --tool-arg="-f" --tool-arg="src/main.py" \
-  --tool-arg="-f" --tool-arg="src/utils.py"
-```
-
-# Prompting Rules
+**GOOD** — delegate fully: call `code` with prompt `"Review commits since merge-base main. Run git merge-base main HEAD, then git log/diff from that point."`
 
 ## Progress tracking
-Include instructions in the prompt telling the sub-agent to write progress updates to a file, letting user check on progress. **Do not poll for completion.**
+Prompt must tell sub-agent to write progress updates to file.
 
-When constructing the prompt, **always** append something like:
+The progress file MUST live **inside the `cwd`** you pass. opencode sandboxes the
+sub-agent to `cwd` and silently auto-rejects writes outside it (e.g. global
+`/tmp`), so an external path produces no file at all. Substitute the actual `cwd`
+into the path before appending. Always append to the prompt:
 
-> As you work, write periodic progress updates to `/tmp/samba-plugin/progress/progress_<unique_id>.md`. Include what phase you are on, what you have completed, and what remains.
+> As you work, write periodic progress updates to `<cwd>/tmp/progress/progress_<unique_id>.md` (a path inside this project directory). Include what phase you are on, what you have completed, and what remains.
 > Write to this file when starting the task to indicate that you have started, and update it periodically even if forward progress is not being made.
 > Additionally, update this file whenever encountering an unexpected or noteworthy error or update.
 
 ## Providing Context:
-The coding tool is given the project directory and the prompt.
-It does not have access to the terminal history or the broader system context unless you explicitly provide it via the prompt or attached files.
-If the user provided instructions (including via AGENTS.md, CLAUDE.md, etc.) which are relevant to the task, include them as well.
-Additionally, if available, provide instructions for testing the code or verifying the task is complete.
+The tool gets the project dir and prompt. No terminal history or broader system context unless explicitly provided via prompt or attached files. If the user gave instructions (AGENTS.md, CLAUDE.md, etc.) relevant to the task, reference them too.
 
-## Task Fusion
-Since this skill is capable of using tools and calling commands, put the commands into the prompt instead of running them first and injecting their results.
+## An Intelligent Junior Developer
+Treat as very intelligent junior dev. Handles complex multi-step tasks with minimal but strict guidance.
 
-**Compound and fuse as many actions as reasonable into the instructions provided to the agent, including prelude and post-skill actions.**
-**TREAT THIS AGENT AS IF IT WERE A VERY INTELLIGENT INTERN. IT WOULD BE VERY EMBARRASSING IF YOU PRE-DIGEST THE ENTIRE TASK, OR PROVIDE EXCESSIVE HAND-HOLDING.**
-**IT WOULD ALSO BE EMBARRASSING IF YOU DIDN'T PROVIDE TESTABLE OUTCOMES OR ASKED THE INTERN TO MAKE ITS OWN. WHAT KIND OF MENTOR DOES THAT?**
-**For complex tasks with provided testable outcomes, prefer to include instructions such as:**
-> After making changes, run the tests to verify they work. If they fail, iterate and refine until the tests pass. However, if the task seems intractable, summarize the issues and report them instead.
+The `code` tool can use tools and run commands — strongly prefer putting commands in the instructions instead of running first and injecting results. Fuse actions into instructions, including prelude and coda actions.
 
-The agent is fully proficient in ALL common programming languages and file formats. Instructions that do not affect semantics such as "Add explicit template instantiations at the bottom of the .cpp:" or "Use `this->` prefix for dependent names" are generally not needed.
+General rule: think less about minutiae, let the `code` tool handle it.
 
-As a general rule of thumb, prefer to think less about the minutae of the task, and instead let the agent deal with it.
+### Complex task guidance
+For complex tasks with testable outcomes, add:
+> After making changes, run the tests to verify they work. If they fail, iterate and refine until the tests pass. However, if the task still fails after a few tries or needs additional guidance, summarize the issues and report them instead.
 
-## Verifying Work
-Since this skill is capable of using tools and calling commands, prefer to have the agent **provide evidence of its results**.
-
-**When writing prompts for this agent, use the WRITE skill. DO NOT use `cat`, `echo`, or other shell commands to write the prompt unless absolutely necessary.**
+### Verifying Work
+The `code` tool can use tools and commands — provide testable outcomes, have it **provide evidence of its results**.
 
 ## File Paths
-When providing paths to the agent, use **absolute paths**. This prevents confusion between `/tmp` (global temporary) and `./tmp` (local temporary), and ensures that interactions with the agent are unambiguous.
+Any file the sub-agent must read or write MUST be **inside the `cwd`** — opencode
+sandboxes the sub-agent to `cwd` and auto-rejects paths outside it (global `/tmp`,
+parent dirs, etc.), silently producing no file. Do NOT point it at global `/tmp`.
 
-# Available Tools and Documentation:
-- [Continue](./tools/continue.md)
-- [Opencode](./tools/opencode.md)
+Prefer an **absolute path under `cwd`** (e.g. `<cwd>/tmp/...`) over a bare
+relative path, to avoid confusion between global `/tmp` and the project-local
+`./tmp` — but either resolves inside `cwd`, which is what the sandbox requires.
 
+To reach files **outside `cwd`**, do NOT just point the sub-agent at the path
+(the sandbox rejects it). Either:
+- `external_dirs: ["/abs/dir"]` — grants the sub-agent **read+write** to that dir
+  (use when it must edit/create files there), or
+- `tool_args: ["-f", "/abs/file"]` — attaches a file as **read-only** context
+  loaded into the message (use when it only needs to read it).

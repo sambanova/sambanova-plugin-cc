@@ -1,12 +1,26 @@
 {
     "$schema": "https://opencode.ai/config.json",
     "model": "sambanova/{{ model.id }}",
+    "instructions": [
+        {% for rule in rule_files %}
+        {{ rule | tojson }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ],
+    {% if external_dirs %}
+    "permission": {
+        "external_directory": {
+            {% for d in external_dirs %}
+            {{ (d ~ "/**") | tojson }}: "allow"{% if not loop.last %},{% endif %}
+            {% endfor %}
+        }
+    },
+    {% endif %}
     "provider": {
         "sambanova": {
             "npm": "@ai-sdk/openai-compatible",
             "name": "SambaNova",
             "options": {
-                "baseURL": "https://api.sambanova.ai/v1",
+                "baseURL": "{{ base_url }}",
                 "apiKey": "{env:SAMBANOVA_API_KEY}"
             },
             "models": {
