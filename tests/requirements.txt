@@ -1,0 +1,4 @@
+# Test-only deps. jinja2 and mcp are pulled in by installing the plugin's
+# agent_shims package (pip install -e plugins/samba-plugin/agent_shims).
+pytest>=8
+PyYAML>=6

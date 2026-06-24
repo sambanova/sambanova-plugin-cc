@@ -58,3 +58,60 @@ jobs:
 
       - name: Smoke-import package
         run: python -c "import agent_shims; print('agent_shims import OK')"
+
+  test:
+    name: Plugin tests (offline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install plugin + test deps
+        run: |
+          pip install -e plugins/samba-plugin/agent_shims
+          pip install -r tests/requirements.txt
+
+      # Structure, offline DB tools, env/config logic, offline code/model_info
+      # logic, and an MCP boot smoke test. No secrets, no network — fork-safe.
+      - name: Run offline test suite
+        run: pytest tests -m "not live" -q
+
+  live:
+    name: Plugin tests (live, secret-gated)
+    runs-on: ubuntu-latest
+    # Don't even spin up on fork PRs (no secret available there); the tests also
+    # self-skip when the key/opencode are absent, so this stays green regardless.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    env:
+      SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node (for the opencode CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install plugin + test deps
+        run: |
+          pip install -e plugins/samba-plugin/agent_shims
+          pip install -r tests/requirements.txt
+
+      # Best-effort: if this fails or the package name changes, the code live
+      # test self-skips (shutil.which("opencode") is None) rather than erroring.
+      - name: Install opencode CLI
+        run: npm install -g opencode-ai || echo "opencode install failed; code live test will skip"
+
+      # model_info (real GET) and code (real opencode run). Each self-skips
+      # without the API key; the code test also skips without opencode on PATH.
+      - name: Run live test suite
+        run: pytest tests -m live -q
