@@ -22,7 +22,7 @@ In Claude Code, run:
 ## Prerequisites
 
 - **Python 3.11+** with `venv` support.
-- A **`SAMBANOVA_API_KEY`** (or `SAMBA_CLAUDE_API_KEY`) environment variable — required
+- A **`SAMBANOVA_API_KEY`** environment variable — required
   by `/model-info` and `/code`.
 - The **[opencode](https://opencode.ai) CLI** installed and on your `PATH` (used by
   `/code`; no model configuration of your own is required).
@@ -92,7 +92,7 @@ context length, max completion tokens, and sampling parameters.
 
 Queries the SambaNova API (`https://api.sambanova.ai/v1/models`) to display the full
 catalog of available models with their context length and max completion tokens.
-Requires `SAMBANOVA_API_KEY` (or `SAMBA_CLAUDE_API_KEY`) to be set.
+Requires `SAMBANOVA_API_KEY` to be set.
 
 This shows what models *can* be used, as opposed to `/list-models` which shows what is
 stored locally.
