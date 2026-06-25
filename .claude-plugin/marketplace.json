@@ -5,7 +5,7 @@
     },
     "plugins": [
         {
-            "name": "samba-plugin",
+            "name": "sambanova-plugin-cc",
             "source": "./plugins/samba-plugin",
             "description": "Adds a variety of skills for delegating tasks to the sambanova cloud."
         }

@@ -16,7 +16,7 @@ In Claude Code, run:
 ### Step 2: Install the plugin
 
 ```
-/plugin install samba-plugin
+/plugin install sambanova-plugin-cc
 ```
 
 ## Prerequisites

@@ -11,7 +11,14 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     tomllib = None
 
-from conftest import MCP_JSON, PLUGIN_JSON, PLUGIN_ROOT, mcp_server_name, plugin_name
+from conftest import (
+    MCP_JSON,
+    PLUGIN_JSON,
+    PLUGIN_ROOT,
+    REPO_ROOT,
+    mcp_server_name,
+    plugin_name,
+)
 
 
 def _json_files():
@@ -50,6 +57,20 @@ def test_plugin_name_matches_mcp_server_key():
     # Tool references (mcp__plugin_{plugin}_{server}__tool) depend on these
     # matching; the convention in this plugin is they are identical.
     assert plugin_name() == mcp_server_name()
+
+
+def test_marketplace_plugin_name_matches_manifest():
+    # The marketplace catalog entry (the install name) and the plugin's own
+    # manifest name must agree; a mismatch confuses install/update tracking and
+    # the MCP tool prefix.
+    marketplace = json.loads(
+        (REPO_ROOT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8")
+    )
+    names = {p["name"] for p in marketplace["plugins"]}
+    assert plugin_name() in names, (
+        f"marketplace.json plugin names {names} must include the manifest "
+        f"name {plugin_name()!r}"
+    )
 
 
 def test_hooks_session_start_defined():
