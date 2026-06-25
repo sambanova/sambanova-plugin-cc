@@ -21,7 +21,10 @@
             "name": "SambaNova",
             "options": {
                 "baseURL": "{{ base_url }}",
-                "apiKey": "{env:SAMBANOVA_API_KEY}"
+                "apiKey": "{env:SAMBANOVA_API_KEY}",
+                "headers": {
+                    "User-Agent": "sambanova-plugin-cc"
+                }
             },
             "models": {
                 "{{ model.id }}": {

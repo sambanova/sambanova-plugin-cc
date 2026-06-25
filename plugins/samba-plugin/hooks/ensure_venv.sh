@@ -2,7 +2,7 @@
 # Idempotent, concurrency-safe builder for the plugin's Python venv.
 #
 # Safe to call from both the SessionStart hook (warmup) and the MCP bootstrap
-# wrapper: an flock serializes the two so they can never clobber each other's
+# wrapper: a lock serializes the two so they can never clobber each other's
 # venv creation / pip install. Whoever gets the lock builds; the other blocks,
 # then sees the work is already done and no-ops.
 #
@@ -20,10 +20,30 @@ VENV="${PLUGIN_DIR}/.env"
 PY="${VENV}/bin/python3"
 SENTINEL="${VENV}/.installed_version"
 
-# Lockfile lives OUTSIDE .env so `rm -rf "$VENV"` below can't delete it
-# mid-build and break mutual exclusion.
-exec 9>"${PLUGIN_DIR}/.env.lock"
-flock 9
+# Serialize the two callers. Lock artifacts live OUTSIDE .env so `rm -rf "$VENV"`
+# below can't delete them mid-build and break mutual exclusion.
+#
+# Prefer flock (Linux). macOS has no flock, so fall back to an atomic mkdir
+# spinlock: mkdir either creates the dir (we win) or fails because it exists
+# (someone else is building, so we wait). A timeout is the safety valve against
+# a stale lock left by a killed process -- after it we proceed unlocked rather
+# than hang the MCP startup.
+if command -v flock >/dev/null 2>&1; then
+    exec 9>"${PLUGIN_DIR}/.env.lock"
+    flock 9
+else
+    LOCKDIR="${PLUGIN_DIR}/.env.lock.d"
+    tries=0
+    until mkdir "$LOCKDIR" 2>/dev/null; do
+        tries=$((tries + 1))
+        if (( tries > 300 )); then  # ~60s at 0.2s/try
+            echo "ensure_venv: lock busy too long; proceeding without it" >&2
+            break
+        fi
+        sleep 0.2
+    done
+    trap 'rmdir "$LOCKDIR" 2>/dev/null || true' EXIT
+fi
 
 VERSION="$(python3 -c "import json; print(json.load(open('${PLUGIN_DIR}/.claude-plugin/plugin.json'))['version'])" 2>/dev/null || true)"
 

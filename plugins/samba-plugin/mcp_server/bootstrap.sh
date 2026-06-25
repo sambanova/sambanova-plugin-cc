@@ -3,7 +3,7 @@
 #
 # Runs when Claude Code spawns the server -- i.e. after the plugin has loaded --
 # so venv creation never races the SessionStart hook. ensure_venv.sh is
-# flock-guarded and shared with that hook, so the two are mutually exclusive.
+# lock-guarded and shared with that hook, so the two are mutually exclusive.
 set -euo pipefail
 
 PLUGIN_DIR="${CLAUDE_PLUGIN_ROOT:?CLAUDE_PLUGIN_ROOT not set}"

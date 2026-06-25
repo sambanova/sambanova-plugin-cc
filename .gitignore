@@ -1,4 +1,6 @@
 .env/
+.env.lock
+.env.lock.d/
 *.egg-info
 __pycache__
 tmp/.env

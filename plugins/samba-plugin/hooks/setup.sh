@@ -5,8 +5,8 @@ if [[ -z "$CLAUDE_PLUGIN_DIR" ]]; then
 fi
 
 # Warm the venv eagerly at session start so the first MCP connect doesn't pay
-# the create/install cost (and risk the MCP startup timeout). This shares an
-# flock with the MCP bootstrap wrapper, so the two never clobber each other.
+# the create/install cost (and risk the MCP startup timeout). This shares a
+# lock with the MCP bootstrap wrapper, so the two never clobber each other.
 "${CLAUDE_PLUGIN_DIR}/hooks/ensure_venv.sh" "$CLAUDE_PLUGIN_DIR"
 
 echo "export SAMBANOVA_PLUGIN_CC_PYTHON=\"${CLAUDE_PLUGIN_DIR}/.env/bin/python3\"" >> "$CLAUDE_ENV_FILE"

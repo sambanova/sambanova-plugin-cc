@@ -26,6 +26,7 @@ def _patch_urlopen(monkeypatch, payload, captured):
     def fake_urlopen(req, *args, **kwargs):
         captured["url"] = req.full_url
         captured["auth"] = req.get_header("Authorization")
+        captured["ua"] = req.get_header("User-agent")
         return _FakeResp(payload)
 
     monkeypatch.setattr(server.urllib.request, "urlopen", fake_urlopen)
@@ -68,6 +69,43 @@ def test_honors_base_url_override(monkeypatch):
     _patch_urlopen(monkeypatch, {"data": []}, cap)
     server._model_info_impl()
     assert cap["url"] == "https://endpoint.test/v1/models"
+
+
+def test_sends_explicit_user_agent(monkeypatch):
+    # Some deployments behind a proxy/WAF reject the default Python-urllib UA
+    # with a 403; an explicit UA avoids that.
+    monkeypatch.setenv("SAMBA_CLAUDE_API_KEY", "k")
+    cap = {}
+    _patch_urlopen(monkeypatch, {"data": []}, cap)
+    server._model_info_impl()
+    assert cap["ua"] == "sambanova-plugin-cc"
+
+
+def test_maps_alias_fields_and_tolerates_sparse_entries(monkeypatch):
+    # Some endpoints return max_output_length (not max_completion_tokens), and
+    # embedding models may carry neither — neither should break the listing.
+    monkeypatch.setenv("SAMBA_CLAUDE_API_KEY", "k")
+    payload = {
+        "data": [
+            {"id": "m1", "context_length": 100, "max_output_length": 50},
+            {"id": "embed", "context_length": 200},  # no max field at all
+        ]
+    }
+    _patch_urlopen(monkeypatch, payload, {})
+    lines = server._model_info_impl().splitlines()
+    assert len(lines) == 2
+    assert "max_completion_tokens=50" in lines[0]
+    assert "max_completion_tokens=0" in lines[1]
+
+
+def test_real_max_completion_tokens_not_overwritten_by_alias(monkeypatch):
+    # SambaNova Cloud sends max_completion_tokens directly; a stray
+    # max_output_length must not clobber it.
+    monkeypatch.setenv("SAMBA_CLAUDE_API_KEY", "k")
+    payload = {"data": [{"id": "m1", "context_length": 100,
+                         "max_completion_tokens": 70, "max_output_length": 999}]}
+    _patch_urlopen(monkeypatch, payload, {})
+    assert "max_completion_tokens=70" in server._model_info_impl()
 
 
 def test_missing_key_raises(monkeypatch):

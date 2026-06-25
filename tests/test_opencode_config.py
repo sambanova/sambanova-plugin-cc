@@ -34,6 +34,14 @@ def test_render_config_honors_base_url_override(monkeypatch, model):
     assert cfg["provider"]["sambanova"]["options"]["baseURL"] == "https://endpoint.test/v1"
 
 
+def test_render_config_sets_user_agent_header(monkeypatch, model):
+    # The /code path goes through opencode; send an explicit UA so a
+    # WAF-gated endpoint doesn't 403 the sub-agent.
+    cfg = json.loads(runner.render_config(model))
+    opts = cfg["provider"]["sambanova"]["options"]
+    assert opts["headers"]["User-Agent"] == "sambanova-plugin-cc"
+
+
 def test_render_config_with_numeric_sampling_params(model):
     cfg = json.loads(runner.render_config(model, sampling_parameters={"temperature": 0.5}))
     # sampling params are applied to every agent profile

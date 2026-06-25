@@ -1,6 +1,6 @@
 {
     "name": "sambanova-plugin-cc",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "description": "Delegate various tasks to Sambanova Cloud models.",
     "author": {
         "name": "Nathan Zhang",

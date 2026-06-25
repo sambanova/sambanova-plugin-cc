@@ -38,6 +38,17 @@ except ImportError:
 
 mcp = FastMCP("sambanova-plugin-cc")
 
+# Explicit User-Agent for our direct HTTP calls. Some deployments sit behind a
+# proxy/WAF that rejects the default "Python-urllib/x.y" UA with a 403, so we
+# always send a stable, identifiable one instead. Harmless on endpoints that
+# don't gate on User-Agent.
+USER_AGENT = "sambanova-plugin-cc"
+
+# Different SambaNova-compatible endpoints name the same concept differently.
+# Map known aliases onto the field our Model dataclass expects so /model-info
+# works across deployments (e.g. some endpoints return max_output_length).
+_MODEL_FIELD_ALIASES = {"max_output_length": "max_completion_tokens"}
+
 
 @mcp.tool()
 async def code(
@@ -275,15 +286,31 @@ def _model_info_impl() -> str:
 
     req = urllib.request.Request(
         f"{get_sambanova_base_url()}/models",
-        headers={"Authorization": f"Bearer {api_key}"},
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": USER_AGENT,
+        },
     )
     with urllib.request.urlopen(req) as resp:
         result = json.loads(resp.read())
 
     known_fields = set(Model.__dataclass_fields__)
     lines = []
-    for model in result.get("data", []):
-        filtered = {k: v for k, v in model.items() if k in known_fields}
+    for raw in result.get("data", []):
+        data = dict(raw)
+        # Bridge endpoint-specific field names (e.g. max_output_length) onto
+        # the dataclass's expected fields without overwriting a real value.
+        for src, dst in _MODEL_FIELD_ALIASES.items():
+            if data.get(dst) is None and data.get(src) is not None:
+                data[dst] = data[src]
+        filtered = {k: v for k, v in data.items()
+                    if k in known_fields and v is not None}
+        if "id" not in filtered:
+            continue  # nothing useful to show without an id
+        # Default the required numerics so one sparse entry (e.g. an embedding
+        # model with no max-output field) can't crash the whole listing.
+        filtered.setdefault("context_length", 0)
+        filtered.setdefault("max_completion_tokens", 0)
         lines.append(str(Model(**filtered)))
     return "\n".join(lines) if lines else "No models returned by the platform."
 
