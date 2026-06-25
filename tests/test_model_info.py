@@ -32,6 +32,7 @@ def _patch_urlopen(monkeypatch, payload, captured):
 
 
 def test_formats_models_and_filters_unknown_fields(monkeypatch):
+    monkeypatch.delenv("SAMBANOVA_BASE_URL", raising=False)
     monkeypatch.delenv("SAMBANOVA_API_OVERRIDE", raising=False)
     monkeypatch.setenv("SAMBA_CLAUDE_API_KEY", "k")
     payload = {
@@ -61,7 +62,8 @@ def test_no_models_message(monkeypatch):
 
 def test_honors_base_url_override(monkeypatch):
     monkeypatch.setenv("SAMBA_CLAUDE_API_KEY", "k")
-    monkeypatch.setenv("SAMBANOVA_API_OVERRIDE", "https://endpoint.test/v1")
+    monkeypatch.delenv("SAMBANOVA_API_OVERRIDE", raising=False)
+    monkeypatch.setenv("SAMBANOVA_BASE_URL", "https://endpoint.test/v1")
     cap = {}
     _patch_urlopen(monkeypatch, {"data": []}, cap)
     server._model_info_impl()

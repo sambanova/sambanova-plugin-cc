@@ -31,6 +31,26 @@ There is **no manual setup step**. On each session start the plugin builds an is
 virtual environment (`.env/`) and installs its `agent_shims` package into it
 automatically, so the skills are ready to use.
 
+## Configuring the base URL
+
+By default the plugin talks to public SambaNova Cloud
+(`https://api.sambanova.ai/v1`). If you run a **SambaManaged / SambaStack** deployment —
+or any OpenAI-compatible SambaNova endpoint on a different host — point the plugin at it
+with the **`SAMBANOVA_BASE_URL`** environment variable:
+
+```
+export SAMBANOVA_BASE_URL=https://api.example.ai/v1
+```
+
+Notes:
+
+- Set the **base** URL (ending in `/v1`). You can also paste a full
+  `…/v1/chat/completions` endpoint — the trailing `/chat/completions` is stripped
+  automatically.
+- This affects every skill that contacts SambaNova (`/code` and `/model-info`).
+- The legacy variable `SAMBANOVA_API_OVERRIDE` is still honored for backward
+  compatibility; `SAMBANOVA_BASE_URL` takes precedence if both are set.
+
 ## How it works
 
 The plugin ships an **MCP server** (`mcp_server/server.py`, launched via
@@ -90,9 +110,11 @@ context length, max completion tokens, and sampling parameters.
 
 ### model-info
 
-Queries the SambaNova API (`https://api.sambanova.ai/v1/models`) to display the full
-catalog of available models with their context length and max completion tokens.
-Requires `SAMBANOVA_API_KEY` to be set.
+Queries the SambaNova API (`<base_url>/models`, where `<base_url>` defaults to
+`https://api.sambanova.ai/v1` and is configurable via
+[`SAMBANOVA_BASE_URL`](#configuring-the-base-url)) to display the full catalog of
+available models with their context length and max completion tokens. Requires
+`SAMBANOVA_API_KEY` to be set.
 
 This shows what models *can* be used, as opposed to `/list-models` which shows what is
 stored locally.

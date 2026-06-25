@@ -16,6 +16,7 @@ def model():
 
 
 def test_render_config_is_valid_json(monkeypatch, model):
+    monkeypatch.delenv("SAMBANOVA_BASE_URL", raising=False)
     monkeypatch.delenv("SAMBANOVA_API_OVERRIDE", raising=False)
     cfg = json.loads(runner.render_config(model))
     assert cfg["model"] == "sambanova/My-Model-v1"
@@ -27,7 +28,8 @@ def test_render_config_is_valid_json(monkeypatch, model):
 
 
 def test_render_config_honors_base_url_override(monkeypatch, model):
-    monkeypatch.setenv("SAMBANOVA_API_OVERRIDE", "https://endpoint.test/v1")
+    monkeypatch.delenv("SAMBANOVA_API_OVERRIDE", raising=False)
+    monkeypatch.setenv("SAMBANOVA_BASE_URL", "https://endpoint.test/v1")
     cfg = json.loads(runner.render_config(model))
     assert cfg["provider"]["sambanova"]["options"]["baseURL"] == "https://endpoint.test/v1"
 

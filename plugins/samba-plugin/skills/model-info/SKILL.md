@@ -18,3 +18,6 @@ and display its output to the user.
 Requires the `sambanova-plugin-cc` MCP server to be running, with
 `SAMBA_CLAUDE_API_KEY` or `SAMBANOVA_API_KEY` set in the environment the server
 inherits.
+
+The endpoint defaults to public SambaNova Cloud (`https://api.sambanova.ai/v1`) and
+can be pointed at a SambaManaged / Stack deployment by setting `SAMBANOVA_BASE_URL`.

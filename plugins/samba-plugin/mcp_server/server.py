@@ -136,7 +136,7 @@ def _run_and_format(m: Model, prompt: str, cwd: str, args: list[str],
             f"opencode exited {result.returncode} "
             f"(baseURL={get_sambanova_base_url()}, model={m.id})\n{err}\n"
             "If this is a model-not-found / auth error, the model may not be "
-            "served on this endpoint — set SAMBANOVA_API_OVERRIDE to the "
+            "served on this endpoint — set SAMBANOVA_BASE_URL to the "
             "endpoint that serves it."
         )
     return _format_opencode_run(result.stdout or "", cwd)
