@@ -1,0 +1,5 @@
+# Gitleaks config for sambanova-plugin-cc. Extends the built-in default ruleset.
+title = "sambanova-plugin-cc gitleaks config"
+
+[extend]
+useDefault = true
