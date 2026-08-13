@@ -1,0 +1,70 @@
+# Copybara config — one-way mirror of the SambaNova Claude Code plugin.
+#
+# Direction:  internal monorepo  ->  public standalone repo  (via a reviewable PR)
+#   origin:       github.com/sambanova/sambanova-marketplace  @ plugins/sambanova-plugin-cc/**
+#   destination:  github.com/sambanova/sambanova-plugin-cc     @ plugins/samba-plugin/**  (PR)
+#
+# This file is the "what to sync" recipe. The "when" is handled by the GitHub Actions
+# workflow at .github/workflows/sync-public.yml (on push to main + daily cron + manual).
+#
+# Internal is the source of truth. Do not hand-edit plugins/samba-plugin/** in the
+# public repo — those edits would be reverted on the next sync.
+
+INTERNAL_URL = "https://github.com/sambanova/sambanova-marketplace.git"
+PUBLIC_URL   = "https://github.com/sambanova/sambanova-plugin-cc.git"
+
+# Bot/maintainer identity stamped on the public commit (scrubs internal authorship).
+SYNC_AUTHOR = "SambaNova Sync Bot <oss-bot@sambanovasystems.com>"
+
+core.workflow(
+    name = "push_to_public",
+    mode = "SQUASH",  # one net commit/PR per sync; no internal commit-by-commit history leak
+
+    origin = git.github_origin(
+        url = INTERNAL_URL,
+        ref = "main",
+    ),
+    # Only read the plugin subtree from the monorepo.
+    origin_files = glob(["plugins/sambanova-plugin-cc/**"]),
+
+    destination = git.github_pr_destination(
+        url = PUBLIC_URL,
+        destination_ref = "main",
+        pr_branch = "copybara/sync-main",     # stable branch => one rolling sync PR
+        title = "Sync from internal: ${COPYBARA_CURRENT_MESSAGE_TITLE}",
+        body = "Automated mirror of internal `plugins/sambanova-plugin-cc`.\n\n" +
+               "Review the diff, then merge to publish.\n\n${COPYBARA_CURRENT_MESSAGE}",
+        update_description = True,
+    ),
+    # CRITICAL scope rail: Copybara may only add/modify/delete files under this path.
+    # Everything else in the public repo (README, LICENSE, CONTRIBUTING, .github/,
+    # NOTICE, root .claude-plugin/marketplace.json) is public-only and left untouched.
+    destination_files = glob(["plugins/samba-plugin/**"]),
+
+    # Overwrite all authorship with the bot identity (don't expose internal authors publicly).
+    authoring = authoring.overwrite(SYNC_AUTHOR),
+
+    transformations = [
+        # Rename the folder: internal name -> public name.
+        core.move("plugins/sambanova-plugin-cc", "plugins/samba-plugin"),
+
+        # --- Public/internal text rewrites -------------------------------------------
+        # Leave commented until the first `--dry-run` reveals real internal<->public
+        # text differences (internal URLs, registry hosts, plugin.json fields the public
+        # copy intentionally changes, etc.). Encode each as one core.replace so the sync
+        # re-applies it every time instead of reverting it. Example:
+        # core.replace(
+        #     before = "internal.sambanova.example",
+        #     after  = "api.sambanova.ai",
+        #     paths  = glob(["**"]),
+        # ),
+
+        # Strip internal-only commit-message labels/footers from the public PR description.
+        metadata.scrubber(
+            regex = "(?m)^(BUG|INTERNAL|JIRA|Reviewed-by|Change-Id)=?:?.*$",
+            replacement = "",
+        ),
+    ],
+
+    description = "Mirror internal plugins/sambanova-plugin-cc to public sambanova-plugin-cc",
+)
