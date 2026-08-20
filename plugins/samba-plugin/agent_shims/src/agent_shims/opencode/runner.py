@@ -1,10 +1,14 @@
+import asyncio
 import contextlib
 import importlib.resources
 import logging
 import os
 import pathlib
+import re
+import shutil
 import subprocess
 import tempfile
+from collections.abc import Iterable
 
 import jinja2
 
@@ -12,6 +16,84 @@ from agent_shims.environment import get_sambanova_base_url, get_sambanova_key
 from agent_shims.model import Model
 
 logger = logging.getLogger(__name__)
+
+# `opencode run --format json` dropped a fast turn's final text before v1.17.0:
+# its event loop was fire-and-forget, so the process exited before draining the
+# final events. Fixed upstream in commit 0a7cb20e66 ("await run event loop",
+# #31389), first released in v1.17.0 -- bisected and confirmed (v1.16.2 BAD,
+# v1.17.0 GOOD). We parse that stream as the source of truth, so we require the
+# fixed binary rather than silently returning truncated answers.
+MIN_OPENCODE_VERSION = (1, 17, 0)
+
+
+async def _opencode_version() -> tuple[int, int, int] | None:
+    """(major, minor, patch) of the ``opencode`` on PATH.
+
+    Returns None when opencode is present but reports an unparseable version
+    (a ``local``/dev build) -- callers let those through. Raises RuntimeError
+    when the binary is missing or ``--version`` cannot be run at all, so callers
+    fail with a clear message instead of the raw ``FileNotFoundError`` that
+    ``run()`` would otherwise throw mid-invocation."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "opencode", "--version",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+    except FileNotFoundError:
+        raise RuntimeError(
+            "opencode not found on PATH. The `code` tool shells out to it -- "
+            "install opencode (https://opencode.ai) and make sure `opencode` "
+            "is runnable."
+        ) from None
+    except OSError as e:
+        raise RuntimeError(f"could not run `opencode --version`: {e}") from e
+    try:
+        stdout_b, _ = await asyncio.wait_for(proc.communicate(), timeout=10)
+    except asyncio.TimeoutError as e:
+        proc.kill()
+        await proc.wait()
+        raise RuntimeError(
+            "could not run `opencode --version`: timed out after 10s"
+        ) from e
+    out = stdout_b.decode(errors="replace").strip()
+    m = re.search(r"(\d+)\.(\d+)\.(\d+)", out)
+    return (int(m[1]), int(m[2]), int(m[3])) if m else None
+
+
+# `require_opencode_version` caches its success so the probe runs once per
+# process (the binary does not change mid-run). An async function can't use
+# `functools.cache` -- that would cache the coroutine, which can only be
+# awaited once. Instead we guard a module-level flag with a lock: concurrent
+# first-callers serialize so only one probe fires, and a raised error leaves
+# the flag unset so a later call re-probes after the user fixes the binary
+# (same "errors are not cached" semantics as the old `functools.cache`).
+_version_lock = asyncio.Lock()
+_version_checked = False
+
+
+async def require_opencode_version() -> None:
+    """Fail fast if opencode is missing or predates the dropped-output fix.
+
+    A missing/unrunnable binary raises via ``_opencode_version``; a dev build
+    (unparseable version) is allowed through -- we can't compare it and it is
+    assumed current."""
+    global _version_checked
+    if _version_checked:
+        return
+    async with _version_lock:
+        if _version_checked:
+            return
+        v = await _opencode_version()
+        if v is not None and v < MIN_OPENCODE_VERSION:
+            got = ".".join(map(str, v))
+            need = ".".join(map(str, MIN_OPENCODE_VERSION))
+            raise RuntimeError(
+                f"opencode {got} is too old: `opencode run --format json` drops "
+                f"a fast turn's final answer before v{need}. Upgrade opencode "
+                f"(e.g. `opencode upgrade`) and retry."
+            )
+        _version_checked = True
 
 
 def get_config_template() -> str:
@@ -40,32 +122,35 @@ def _is_rule_file(path: pathlib.Path) -> bool:
     return path.name.endswith(".md") and not path.name.endswith(".original.md")
 
 
-def get_rule_files() -> list[str]:
+def get_rule_files() -> tuple[str, ...]:
     """Absolute paths of the top-level ``rules/*.md`` files.
 
     These are injected directly into every agent's ``instructions`` (always
     loaded). opencode resolves relative ``instructions`` paths against the
     project root (``--dir``), not our package, so we hand it absolute paths.
+    Sorted so the ``NN-`` filename prefixes (00-, 01-, ...) drive a stable
+    injection order; ``glob`` alone yields arbitrary filesystem order.
     """
     rules_dir = get_rules_dir()
     if rules_dir is None:
-        return []
-    return sorted(str(p) for p in rules_dir.glob("*.md") if _is_rule_file(p))
+        return ()
+    return tuple(sorted(str(p) for p in rules_dir.glob("*.md")
+                        if _is_rule_file(p)))
 
 
-def get_nested_rule_files() -> list[str]:
+def get_nested_rule_files() -> tuple[str, ...]:
     """Absolute paths of ``rules/<subdir>/**/*.md`` — rules in subdirectories.
 
     These are NOT injected into context. They are surfaced via the manifest
     (see ``build_rule_manifest``) for progressive disclosure: the agent reads a
     nested file on demand when its topic is relevant, keeping the base prompt
-    small.
+    small. Sorted for a stable, reproducible manifest.
     """
     rules_dir = get_rules_dir()
     if rules_dir is None:
-        return []
-    return sorted(str(p) for p in rules_dir.rglob("*.md")
-                  if p.parent != rules_dir and _is_rule_file(p))
+        return ()
+    return tuple(sorted(str(p) for p in rules_dir.rglob("*.md")
+                        if p.parent != rules_dir and _is_rule_file(p)))
 
 
 def _rule_description(path: pathlib.Path) -> str:
@@ -90,7 +175,7 @@ def _rule_description(path: pathlib.Path) -> str:
     return ""
 
 
-def build_rule_manifest(nested_files: list[str]) -> str:
+def build_rule_manifest(nested_files: Iterable[str]) -> str:
     """Render a markdown index of on-demand (nested) rule files.
 
     Each entry is the file's absolute path plus a one-line summary so the agent
@@ -125,20 +210,23 @@ def render_config(model: Model, sampling_parameters: dict | None = None,
         model=model,
         sampling_parameters=sampling_parameters or model.sampling_parameters,
         base_url=get_sambanova_base_url(),
-        rule_files=get_rule_files() + list(extra_instruction_files or []),
+        rule_files=[*get_rule_files(), *(extra_instruction_files or [])],
         # opencode's file tools auto-reject paths outside the project root
         # (--dir) unless the dir is granted here; each entry becomes an
         # `external_directory: allow` glob. NOTE: opencode (through 1.17.9)
         # treats this grant as read+write -- the documented per-tool read-only
         # override (edit/write deny) is silently ignored for external dirs
         # (verified) -- so granting a dir also gives the sub-agent write access.
-        external_dirs=list(external_dirs or []),
+        external_dirs=external_dirs or [],
     )
 
 
-def run(model: Model, prompt: str, cwd: str, extra_args: list[str] | None = None,
-        capture_output: bool = False,
-        external_dirs: list[str] | None = None) -> subprocess.CompletedProcess:
+async def run(model: Model, prompt: str, cwd: str,
+              extra_args: list[str] | None = None,
+              external_dirs: list[str] | None = None,
+              log_name: str | None = None
+              ) -> subprocess.CompletedProcess:
+    await require_opencode_version()
     with contextlib.ExitStack() as stack:
         # Nested rules are advertised through a manifest file that is itself an
         # instruction. Both temp files must outlive the subprocess, so they
@@ -171,37 +259,90 @@ def run(model: Model, prompt: str, cwd: str, extra_args: list[str] | None = None
         # OS per-argument limit (MAX_ARG_STRLEN, ~128KB on Linux) and fail to
         # exec with OSError "Argument list too long" before opencode even starts
         # -- a fast, endpoint-independent death. opencode reads the message from
-        # stdin when no positional message is given. subprocess writes `input`
-        # then closes the pipe, so opencode still gets the immediate EOF it needs
-        # to exit its event loop (the reason we previously used DEVNULL).
+        # stdin when no positional message is given. communicate() writes the
+        # input then closes the pipe, so opencode still gets the immediate EOF
+        # it needs to exit its event loop (the reason we previously used DEVNULL).
         cmd = ["opencode", "run", "--dir", cwd] + (extra_args or [])
-        return subprocess.run(
-            cmd,
+        env = {**os.environ, "OPENCODE_CONFIG": f.name,
+               "SAMBANOVA_API_KEY": get_sambanova_key()}
+        # Async subprocess: the opencode turn blocks for seconds-to-minutes, so
+        # awaiting it (rather than blocking a worker thread with subprocess.run)
+        # lets concurrent `code` calls run on the one event loop. stdout/stderr
+        # are streamed line-by-line to a per-invocation log file (flushed per
+        # line) so an external watcher can poll progress / detect a stall, while
+        # still being accumulated for the returned CompletedProcess. Draining
+        # concurrently with the stdin write avoids a pipe-full deadlock.
+        pipe = asyncio.subprocess.PIPE
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
             cwd=cwd,
-            text=True,
-            env={**os.environ, "OPENCODE_CONFIG": f.name, "SAMBANOVA_API_KEY": get_sambanova_key()},
-            input=prompt,
-            capture_output=capture_output,
+            env=env,
+            stdin=pipe,
+            stdout=pipe,
+            stderr=pipe,
         )
 
+        # Optional live-progress log: written ONLY when the caller names it
+        # (log_name), so default behavior is unchanged -- no file is created.
+        # The name is caller-supplied so the caller knows the path up front and
+        # can poll it while this call runs. Output is accumulated for the return
+        # regardless. Draining concurrently with the stdin write avoids a
+        # pipe-full deadlock.
+        log_path = None
+        logf = None
+        run_dir = None
+        if log_name:
+            log_base = os.path.join(tempfile.gettempdir(), "sambanova_code_logs")
+            # Per-run dir keyed by the caller's token so get_progress() can
+            # locate the log by token alone, and so the whole run's logs can be
+            # removed wholesale below. The log is EPHEMERAL: it exists only
+            # while this call runs (for live polling) and is deleted when the
+            # call finishes -- the full output still returns via the result --
+            # so logs never accumulate in the temp dir.
+            run_dir = os.path.join(log_base, os.path.basename(log_name))
+            os.makedirs(run_dir, exist_ok=True)
+            log_path = os.path.join(run_dir, "progress.log")
+            logf = open(log_path, "w")
 
-def export_session(session_id: str, cwd: str) -> str:
-    """Export a finished session's full transcript as JSON via `opencode export`.
+        stdout_chunks: list[bytes] = []
+        stderr_chunks: list[bytes] = []
 
-    Used to recover the assistant's answer when `opencode run --format json`
-    drops the final `text` part: its event loop breaks on `session.status=idle`
-    and only emits `text`/`reasoning` parts that already carry `time.end`, so on
-    fast endpoints the finalized answer loses the race and never reaches stdout.
-    The part is still persisted, and `export` reads it straight from storage.
+        async def _drain(stream, sink, prefix):
+            while True:
+                line = await stream.readline()
+                if not line:
+                    break
+                sink.append(line)
+                if logf is not None:
+                    logf.write(prefix + line.decode(errors="replace"))
+                    logf.flush()
 
-    Sessions live in opencode's global storage keyed by ID, so this needs
-    neither OPENCODE_CONFIG nor a matching --dir. Progress ("Exporting
-    session: ...") goes to stderr; stdout is clean JSON.
-    """
-    return subprocess.run(
-        ["opencode", "export", session_id],
-        cwd=cwd,
-        text=True,
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-    ).stdout or ""
+        try:
+            stdout_task = asyncio.create_task(_drain(proc.stdout, stdout_chunks, ""))
+            stderr_task = asyncio.create_task(_drain(proc.stderr, stderr_chunks, "[stderr] "))
+            proc.stdin.write(prompt.encode())
+            await proc.stdin.drain()
+            proc.stdin.close()
+            try:
+                await proc.stdin.wait_closed()
+            except Exception:
+                pass
+            await asyncio.gather(stdout_task, stderr_task, proc.wait())
+        finally:
+            if logf is not None:
+                logf.close()
+            # Auto-clean the ephemeral per-run log dir. ignore_errors so a
+            # concurrent reader or an already-gone dir can't break teardown.
+            if run_dir is not None:
+                shutil.rmtree(run_dir, ignore_errors=True)
+
+        stdout_b = b"".join(stdout_chunks)
+        stderr_b = b"".join(stderr_chunks)
+    result = subprocess.CompletedProcess(
+        args=cmd,
+        returncode=proc.returncode,
+        stdout=stdout_b.decode(errors="replace"),
+        stderr=stderr_b.decode(errors="replace"),
+    )
+    result.log_path = log_path
+    return result

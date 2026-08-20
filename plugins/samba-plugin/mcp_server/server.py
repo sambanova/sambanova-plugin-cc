@@ -8,7 +8,9 @@ update-model) as MCP tools backed by the same `agent_shims` library.
 import json
 import os
 import sys
+import tempfile
 import urllib.request
+from collections import deque
 
 import anyio.to_thread
 
@@ -38,17 +40,6 @@ except ImportError:
 
 mcp = FastMCP("sambanova-plugin-cc")
 
-# Explicit User-Agent for our direct HTTP calls. Some deployments sit behind a
-# proxy/WAF that rejects the default "Python-urllib/x.y" UA with a 403, so we
-# always send a stable, identifiable one instead. Harmless on endpoints that
-# don't gate on User-Agent.
-USER_AGENT = "sambanova-plugin-cc"
-
-# Different SambaNova-compatible endpoints name the same concept differently.
-# Map known aliases onto the field our Model dataclass expects so /model-info
-# works across deployments (e.g. some endpoints return max_output_length).
-_MODEL_FIELD_ALIASES = {"max_output_length": "max_completion_tokens"}
-
 
 @mcp.tool()
 async def code(
@@ -57,6 +48,7 @@ async def code(
     cwd: str | None = None,
     session_id: str | None = None,
     max_tokens: int | None = None,
+    progress_token: str | None = None,
     tool_args: list[str] | None = None,
     external_dirs: list[str] | None = None,
 ) -> str:
@@ -89,6 +81,13 @@ async def code(
             For read-only context from a single external file, prefer attaching
             it via tool_args ["-f", "/abs/path"], which loads it into the
             message without granting filesystem access.
+        progress_token: If set, stream this call's opencode output live to
+            {tempdir}/sambanova_code_logs/<progress_token>/progress.log
+            (flushed per line) so it can be polled via get_progress() while the
+            call runs. The log is EPHEMERAL -- its directory is removed when the
+            call finishes, so poll it only during the run; the full output
+            returns via this call's result regardless. Default None = no log
+            file (unchanged behavior).
     """
     m = get_model(model)
     if m is None:
@@ -120,51 +119,66 @@ async def code(
     if session_id:
         args += ["--session", session_id]
     args += (tool_args or [])
-    # The opencode subprocess (and the export call inside _run_and_format) block
-    # for seconds-to-minutes. FastMCP runs sync tools directly on its event loop,
-    # so doing this inline would serialize every concurrent MCP call. Offload to
-    # a worker thread (subprocess.run releases the GIL while waiting) so
-    # independent `code` calls actually run in parallel.
-    return await anyio.to_thread.run_sync(
-        _run_and_format, m, prompt, cwd, args, norm_external
-    )
+    # opencode.run drives the subprocess with asyncio, so awaiting it here lets
+    # independent `code` calls run concurrently on the server's event loop
+    # without tying up a worker thread each (the turn blocks for
+    # seconds-to-minutes). The sqlite/HTTP tools below still offload to threads
+    # because they have no async equivalent.
+    return await _run_and_format(m, prompt, cwd, args, norm_external, progress_token)
 
 
-def _run_and_format(m: Model, prompt: str, cwd: str, args: list[str],
-                    external_dirs: list[str] | None) -> str:
-    """Run opencode and format its output. Blocking; runs in a worker thread."""
-    result = opencode.run(m, prompt, cwd, args, capture_output=True,
-                          external_dirs=external_dirs)
+@mcp.tool()
+def get_progress(token: str, tail_lines: int = 200) -> str:
+    """Return the tail of a `code` call's live progress log.
+
+    Pass the same `progress_token` you gave `code(...)`. Use it to watch a
+    long or backgrounded call's progress, or to detect a stall. Returns a
+    "(no log ...)" notice if the token's log file does not exist yet.
+    """
+    path = os.path.join(tempfile.gettempdir(), "sambanova_code_logs",
+                        os.path.basename(token), "progress.log")
+    if not os.path.exists(path):
+        return f"(no log for token '{token}' at {path})"
+    with open(path, "r", errors="replace") as f:
+        lines = deque(f, maxlen=tail_lines)
+    return "".join(lines)
+
+
+async def _run_and_format(m: Model, prompt: str, cwd: str, args: list[str],
+                          external_dirs: list[str] | None,
+                          progress_token: str | None = None) -> str:
+    """Run opencode and format its output."""
+    result = await opencode.run(m, prompt, cwd, args,
+                                external_dirs=external_dirs,
+                                log_name=(progress_token if progress_token else None))
     if result.returncode != 0:
         # opencode exits non-zero on a hard failure (auth, model-not-found, bad
         # endpoint) with the real cause on stderr and empty stdout. Without this
         # check that error is silently swallowed and surfaces as the bland
         # "[no text or reasoning output]", making an endpoint/model mismatch look
-        # like a mysterious quick death. (A *dropped answer* is different: there
-        # opencode exits 0 — that path stays in _format_opencode_run.)
-        err = (result.stderr or "").strip() or "(no stderr)"
+        # like a mysterious quick death.
+        err = result.stderr.strip() or "(no stderr)"
         raise RuntimeError(
             f"opencode exited {result.returncode} "
             f"(baseURL={get_sambanova_base_url()}, model={m.id})\n{err}\n"
             "If this is a model-not-found / auth error, the model may not be "
-            "served on this endpoint — set SAMBANOVA_BASE_URL to the "
+            "served on this endpoint — set SAMBANOVA_API_OVERRIDE to the "
             "endpoint that serves it."
         )
-    return _format_opencode_run(result.stdout or "", cwd)
+    text = _format_opencode_run(result.stdout)
+    return text
 
 
-def _parse_stream(stdout: str) -> tuple[str, str, str, list[str]]:
-    """Pull (session_id, text, reasoning, message_ids) from opencode's
-    `--format json` newline-delimited event stream.
+def _parse_stream(stdout: str) -> tuple[str, str, str]:
+    """Pull (session_id, text, reasoning) from opencode's `--format json`
+    newline-delimited event stream.
 
-    message_ids is every assistant message this run touched, in first-seen order.
-    `step_start` carries the messageID and prints even in the worst case (when no
-    text/reasoning ever flush), so it reliably scopes the run for export
-    recovery."""
+    The stream is the complete, authoritative record of the turn on opencode
+    >= v1.17.0 (see runner.require_opencode_version): text/reasoning parts are
+    concatenated across every step of the run."""
     session_id = ""
     text: list[str] = []
     reasoning: list[str] = []
-    message_ids: list[str] = []
     for line in stdout.splitlines():
         line = line.strip()
         if not line:
@@ -175,72 +189,26 @@ def _parse_stream(stdout: str) -> tuple[str, str, str, list[str]]:
             continue
         session_id = session_id or ev.get("sessionID", "")
         part = ev.get("part", {})
-        mid = part.get("messageID", "")
-        if mid and mid not in message_ids:
-            message_ids.append(mid)
         t = ev.get("type")
         if t == "text":
             text.append(part.get("text", ""))
         elif t == "reasoning":
             reasoning.append(part.get("text", ""))
-    return session_id, "".join(text).strip(), "".join(reasoning).strip(), message_ids
+    return session_id, "".join(text).strip(), "".join(reasoning).strip()
 
 
-def _parse_export(export_json: str, message_ids: list[str]) -> tuple[str, str]:
-    """Pull (text, reasoning) from the `opencode export` transcript, scoped to
-    this run's assistant messages.
-
-    A single run can span several assistant messages (text → tool → text → ...),
-    so we concatenate every text part across them — matching the stream's
-    all-text semantics, not just the final message. Filtering by message_ids also
-    excludes earlier turns when resuming a session. Falls back to the last
-    assistant message if the stream gave us no ids to filter on."""
-    try:
-        data = json.loads(export_json)
-    except json.JSONDecodeError:
-        return "", ""
-    assistant = [m for m in data.get("messages", []) if m.get("info", {}).get("role") == "assistant"]
-    wanted = message_ids and [m for m in assistant if m.get("info", {}).get("id") in message_ids]
-    msgs = wanted or (assistant[-1:] if assistant else [])
-    parts = [p for m in msgs for p in m.get("parts", [])]
-    text = [p.get("text", "") for p in parts if p.get("type") == "text"]
-    reasoning = [p.get("text", "") for p in parts if p.get("type") == "reasoning"]
-    return "".join(text).strip(), "".join(reasoning).strip()
-
-
-def _format_opencode_run(stdout: str, cwd: str) -> str:
+def _format_opencode_run(stdout: str) -> str:
     """Extract the session ID and output from opencode's `--format json`
     newline-delimited event stream.
 
-    opencode's run loop breaks on `session.status=idle` and only emits
-    `text`/`reasoning` parts that already carry `time.end`; on fast endpoints
-    parts that finalize as the session goes idle lose that race and never hit
-    stdout. The catch: a *non-final* text part can finalize early (when its step
-    ends) and print, while the final answer finalizes at idle and is dropped --
-    so the stream can hold *partial* text, not just all-or-nothing. We therefore
-    can't trust a non-empty stream body to be complete.
-
-    A printed part was finalized, hence persisted, so `opencode export` is a
-    strict superset of the stream. Whenever we have a session we treat export as
-    the source of truth and fall back to the streamed parts only if export is
-    unavailable. On these fast endpoints the stream is usually empty anyway, so
-    this rarely costs an export call we weren't already making. If neither yields
-    text we surface the reasoning trace, flagged so the caller knows it is the
-    trace and not a final answer.
+    The stream is the source of truth. (opencode < v1.17.0 could exit `run`
+    before draining the final events and drop a fast turn's answer; runner
+    enforces >= v1.17.0 so that can't happen here -- see
+    runner.require_opencode_version.) If there is no text we surface the
+    reasoning trace, flagged so the caller knows it is the trace and not a
+    final answer.
     """
-    session_id, stream_text, stream_reasoning, message_ids = _parse_stream(stdout)
-
-    ex_text = ex_reasoning = ""
-    if session_id:
-        try:
-            ex_text, ex_reasoning = _parse_export(
-                opencode.export_session(session_id, cwd), message_ids
-            )
-        except Exception:
-            ex_text = ex_reasoning = ""
-
-    text = ex_text or stream_text
-    reasoning = ex_reasoning or stream_reasoning
+    session_id, text, reasoning = _parse_stream(stdout)
 
     claude_session_id = os.environ.get("CLAUDE_CODE_SESSION_ID", "")
     header = f"sessionID: {session_id}\nCLAUDE_SESSION_ID: {claude_session_id}\n\n"
@@ -261,9 +229,11 @@ async def list_models() -> str:
     """List all model in param database + their param. Use when user say
     "list models", "show models in the database", or "what models are stored".
     """
-    # Offload the sqlite read to a worker thread so it never blocks the server
-    # event loop (and concurrent calls). Same rationale as `code`.
-    models = await anyio.to_thread.run_sync(_list_models)
+    # Called inline: a query against the packaged ~12KB sqlite db is sub-ms, so
+    # the event-loop block is invisible and a thread hop would cost more than
+    # the work. (Same reason `code` reads get_model inline.) Only genuinely
+    # slow I/O -- the opencode subprocess, the platform HTTP call -- goes async.
+    models = _list_models()
     if not models:
         return "No models in database."
     return "\n".join(str(m) for m in models)
@@ -276,7 +246,9 @@ async def model_info() -> str:
     or need look up model param before add to database. Requires
     SAMBA_CLAUDE_API_KEY or SAMBANOVA_API_KEY in the environment.
     """
-    # The HTTP round-trip to the platform is blocking; offload it.
+    # The HTTP round-trip to the platform is genuinely blocking (seconds), so
+    # offload it to a worker thread to keep the event loop free -- unlike the
+    # local sqlite tools, which run inline.
     return await anyio.to_thread.run_sync(_model_info_impl)
 
 
@@ -286,31 +258,15 @@ def _model_info_impl() -> str:
 
     req = urllib.request.Request(
         f"{get_sambanova_base_url()}/models",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "User-Agent": USER_AGENT,
-        },
+        headers={"Authorization": f"Bearer {api_key}"},
     )
     with urllib.request.urlopen(req) as resp:
         result = json.loads(resp.read())
 
     known_fields = set(Model.__dataclass_fields__)
     lines = []
-    for raw in result.get("data", []):
-        data = dict(raw)
-        # Bridge endpoint-specific field names (e.g. max_output_length) onto
-        # the dataclass's expected fields without overwriting a real value.
-        for src, dst in _MODEL_FIELD_ALIASES.items():
-            if data.get(dst) is None and data.get(src) is not None:
-                data[dst] = data[src]
-        filtered = {k: v for k, v in data.items()
-                    if k in known_fields and v is not None}
-        if "id" not in filtered:
-            continue  # nothing useful to show without an id
-        # Default the required numerics so one sparse entry (e.g. an embedding
-        # model with no max-output field) can't crash the whole listing.
-        filtered.setdefault("context_length", 0)
-        filtered.setdefault("max_completion_tokens", 0)
+    for model in result.get("data", []):
+        filtered = {k: v for k, v in model.items() if k in known_fields}
         lines.append(str(Model(**filtered)))
     return "\n".join(lines) if lines else "No models returned by the platform."
 
@@ -337,7 +293,7 @@ async def update_model(
         max_completion_tokens=max_completion_tokens,
         sampling_parameters=sampling_parameters or {},
     )
-    await anyio.to_thread.run_sync(insert_model, model)
+    insert_model(model)  # inline: local sqlite write, sub-ms (see list_models)
     return f"Model '{model.id}' inserted/updated successfully."
 
 
@@ -346,7 +302,7 @@ async def reset_model_db() -> str:
     """Reset model param database, clear all entry. Use when user say
     "reset the database", "clear the model database", or "wipe model parameters".
     """
-    await anyio.to_thread.run_sync(reset_db)
+    reset_db()  # inline: local sqlite write, sub-ms (see list_models)
     return "Database reset successfully."
 
 
